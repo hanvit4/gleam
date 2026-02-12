@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Check, X, Trophy } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import * as api from '../utils/api';
 
 interface Verse {
   book: string;
@@ -37,10 +38,31 @@ export default function ExpertTyping({ onBack, onComplete, todayEarned, dailyLim
   const [showCreditAnimation, setShowCreditAnimation] = useState(false);
   const [sessionEarned, setSessionEarned] = useState(0);
   const [reachedLimit, setReachedLimit] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const currentVerse = bibleVerses[currentVerseIndex];
   const remainingCredits = dailyLimit - todayEarned;
   const canEarnMore = remainingCredits > 0;
+
+  // Save transcription to DB
+  const saveTranscriptionToDB = async (verse: Verse, credits: number) => {
+    try {
+      setIsSaving(true);
+      const result = await api.saveTranscription({
+        mode: 'expert',
+        verse: verse.text,
+        credits,
+        book: verse.book,
+        chapter: verse.chapter,
+        verseNum: verse.verse,
+      });
+      console.log('Transcription saved:', result);
+    } catch (error) {
+      console.error('Failed to save transcription:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Check if input matches
   useEffect(() => {
@@ -58,8 +80,12 @@ export default function ExpertTyping({ onBack, onComplete, todayEarned, dailyLim
       // Check if daily limit reached
       if (todayEarned + sessionEarned >= dailyLimit) {
         setReachedLimit(true);
+        
+        // Save to DB
+        saveTranscriptionToDB(currentVerse, 10);
+        
         setTimeout(() => {
-          onComplete(sessionEarned);
+          onComplete(sessionEarned + 10);
         }, 2000);
         return;
       }
@@ -67,6 +93,9 @@ export default function ExpertTyping({ onBack, onComplete, todayEarned, dailyLim
       // Trigger credit animation
       setShowCreditAnimation(true);
       setSessionEarned(sessionEarned + 10);
+
+      // Save to DB
+      saveTranscriptionToDB(currentVerse, 10);
 
       // Move to next verse after delay
       setTimeout(() => {
