@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Coins, Calendar, CheckCircle2, BookOpen, ChevronLeft, ChevronRight, Home, Book, User } from 'lucide-react';
 import BibleTab from './components/BibleTab';
 import ProfileTab from './components/ProfileTab';
@@ -7,10 +7,14 @@ import EasyTopics from './components/EasyTopics';
 import EasyTyping from './components/EasyTyping';
 import ExpertTyping from './components/ExpertTyping';
 import LoginScreen from './components/LoginScreen';
+import { supabase } from './utils/supabase/client';
+import * as api from './utils/api';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [credits, setCredits] = useState(12500);
+  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [credits, setCredits] = useState(0);
   const [todayEarned, setTodayEarned] = useState(0);
   const DAILY_LIMIT = 300;
   const [activeTab, setActiveTab] = useState('home');
@@ -18,17 +22,100 @@ export default function App() {
   const [selectedTopic, setSelectedTopic] = useState<string>('');
   
   // Mock data for calendar - 날짜별 획득량 (0-300)
-  const [earnedByDate, setEarnedByDate] = useState<{ [key: string]: number }>({
-    '2026-01-25': 300,
-    '2026-01-26': 180,
-    '2026-01-27': 270,
-    '2026-01-28': 150,
-    '2026-01-29': 300,
-    '2026-01-30': 240,
-    '2026-01-31': todayEarned,
-  });
+  const [earnedByDate, setEarnedByDate] = useState<{ [key: string]: number }>({});
 
   const [currentMonth, setCurrentMonth] = useState(new Date(2026, 0)); // January 2026
+
+  // Load user data from API
+  const loadUserData = async () => {
+    try {
+      console.log('Loading user data...');
+      
+      // Load profile
+      const profileRes = await api.getUserProfile();
+      console.log('Profile loaded:', profileRes.profile);
+      setCredits(profileRes.profile.credits || 0);
+      
+      // Load today's stats
+      const todayRes = await api.getDailyStats();
+      console.log('Today stats loaded:', todayRes.stats);
+      setTodayEarned(todayRes.stats?.earned || 0);
+      
+      // Load current month stats
+      const monthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+      const monthRes = await api.getMonthlyStats(monthStr);
+      console.log('Month stats loaded:', monthRes.stats);
+      
+      // Convert month stats to earnedByDate format
+      const monthData: { [key: string]: number } = {};
+      if (monthRes.stats && Array.isArray(monthRes.stats)) {
+        monthRes.stats.forEach((stat: any) => {
+          monthData[stat.date] = stat.earned || 0;
+        });
+      }
+      setEarnedByDate(monthData);
+      
+    } catch (error) {
+      console.error('Error loading user data:', error);
+    }
+  };
+
+  // Check session on mount and listen for auth changes
+  useEffect(() => {
+    // Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsLoggedIn(!!session);
+      setUser(session?.user ?? null);
+      setIsLoading(false);
+      
+      if (session) {
+        console.log('로그인된 사용자:', session.user);
+        loadUserData();
+      }
+    });
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(!!session);
+      setUser(session?.user ?? null);
+      
+      if (session) {
+        console.log('인증 상태 변경:', session.user);
+        loadUserData();
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Reload month data when month changes
+  useEffect(() => {
+    if (isLoggedIn) {
+      const monthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+      api.getMonthlyStats(monthStr).then((monthRes) => {
+        const monthData: { [key: string]: number } = {};
+        if (monthRes.stats && Array.isArray(monthRes.stats)) {
+          monthRes.stats.forEach((stat: any) => {
+            monthData[stat.date] = stat.earned || 0;
+          });
+        }
+        setEarnedByDate(monthData);
+      }).catch(error => {
+        console.error('Error loading month stats:', error);
+      });
+    }
+  }, [currentMonth, isLoggedIn]);
+
+  // Show loading while checking session
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#fef7ff] flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-[#6750a4] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   // Show login screen if not logged in
   if (!isLoggedIn) {
@@ -58,20 +145,16 @@ export default function App() {
     setCurrentScreen('modeSelect');
   };
 
-  const handleEasyComplete = (earnedCredits: number) => {
-    setCredits(credits + earnedCredits);
+  const handleEasyComplete = async (earnedCredits: number) => {
+    // Reload user data from server
+    await loadUserData();
     setCurrentScreen('home');
     setActiveTab('home');
   };
 
-  const handleExpertComplete = (earnedCredits: number) => {
-    const newEarned = Math.min(todayEarned + earnedCredits, DAILY_LIMIT);
-    setTodayEarned(newEarned);
-    setCredits(credits + earnedCredits);
-    setEarnedByDate({
-      ...earnedByDate,
-      '2026-01-31': newEarned,
-    });
+  const handleExpertComplete = async (earnedCredits: number) => {
+    // Reload user data from server
+    await loadUserData();
     setCurrentScreen('home');
     setActiveTab('home');
   };
