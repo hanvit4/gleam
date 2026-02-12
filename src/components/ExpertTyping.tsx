@@ -39,6 +39,7 @@ export default function ExpertTyping({ onBack, onComplete, todayEarned, dailyLim
   const [sessionEarned, setSessionEarned] = useState(0);
   const [reachedLimit, setReachedLimit] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false); // Prevent double-processing
 
   const currentVerse = bibleVerses[currentVerseIndex];
   const remainingCredits = dailyLimit - todayEarned;
@@ -66,7 +67,7 @@ export default function ExpertTyping({ onBack, onComplete, todayEarned, dailyLim
 
   // Check if input matches
   useEffect(() => {
-    if (userInput.length === 0) {
+    if (userInput.length === 0 || isProcessing) {
       setIsCorrect(null);
       return;
     }
@@ -76,26 +77,28 @@ export default function ExpertTyping({ onBack, onComplete, todayEarned, dailyLim
 
     if (trimmedInput === targetText) {
       setIsCorrect(true);
+      setIsProcessing(true); // Prevent double-processing
 
-      // Check if daily limit reached
-      if (todayEarned + sessionEarned >= dailyLimit) {
-        setReachedLimit(true);
-        
-        // Save to DB
-        saveTranscriptionToDB(currentVerse, 10);
-        
-        setTimeout(() => {
-          onComplete(sessionEarned + 10);
-        }, 2000);
-        return;
-      }
+      // Calculate new earned amount
+      const newSessionEarned = sessionEarned + 10;
+      const newTotalEarned = todayEarned + newSessionEarned;
 
       // Trigger credit animation
       setShowCreditAnimation(true);
-      setSessionEarned(sessionEarned + 10);
+      setSessionEarned(newSessionEarned);
 
       // Save to DB
       saveTranscriptionToDB(currentVerse, 10);
+
+      // Check if daily limit reached AFTER adding credits
+      if (newTotalEarned >= dailyLimit) {
+        setReachedLimit(true);
+        
+        setTimeout(() => {
+          onComplete(newSessionEarned);
+        }, 2000);
+        return;
+      }
 
       // Move to next verse after delay
       setTimeout(() => {
@@ -104,10 +107,11 @@ export default function ExpertTyping({ onBack, onComplete, todayEarned, dailyLim
           setCurrentVerseIndex(currentVerseIndex + 1);
           setUserInput('');
           setIsCorrect(null);
+          setIsProcessing(false); // Re-enable processing for next verse
         } else {
           // Chapter completed
           setTimeout(() => {
-            onComplete(sessionEarned + 10);
+            onComplete(newSessionEarned);
           }, 500);
         }
       }, 1500);
