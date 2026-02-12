@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>성경 필사 앱 아이콘 다운로드</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 24px;
+      padding: 40px;
+      max-width: 600px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+    
+    h1 {
+      color: #1d1b20;
+      font-size: 32px;
+      font-weight: bold;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+    
+    .subtitle {
+      color: #49454f;
+      text-align: center;
+      margin-bottom: 32px;
+      font-size: 16px;
+    }
+    
+    .icon-preview {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 32px;
+    }
+    
+    #appIcon {
+      width: 256px;
+      height: 256px;
+      border-radius: 56px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    }
+    
+    .download-section {
+      display: grid;
+      gap: 12px;
+    }
+    
+    button {
+      background: linear-gradient(135deg, #6750a4, #7f67be);
+      color: white;
+      border: none;
+      padding: 16px 24px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px rgba(103, 80, 164, 0.4);
+    }
+    
+    button:active {
+      transform: translateY(0);
+    }
+    
+    .size-info {
+      background: #f3f0f4;
+      padding: 16px;
+      border-radius: 12px;
+      margin-top: 24px;
+    }
+    
+    .size-info h3 {
+      color: #6750a4;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    
+    .size-info ul {
+      list-style: none;
+      font-size: 13px;
+      color: #49454f;
+      line-height: 1.6;
+    }
+    
+    .size-info li:before {
+      content: "✓ ";
+      color: #6750a4;
+      font-weight: bold;
+      margin-right: 8px;
+    }
+    
+    canvas {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📖 성경 필사 앱 아이콘</h1>
+    <p class="subtitle">비즈앱 등록용 아이콘을 다운로드하세요</p>
+    
+    <div class="icon-preview">
+      <svg id="appIcon" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Background with rounded corners -->
+        <rect width="1024" height="1024" rx="226" fill="url(#gradient)"/>
+        
+        <!-- Gradient Definition -->
+        <defs>
+          <linearGradient id="gradient" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#6750a4"/>
+            <stop offset="100%" stop-color="#7f67be"/>
+          </linearGradient>
+        </defs>
+        
+        <!-- Bible Book Icon -->
+        <g transform="translate(512, 512)">
+          <!-- Left page -->
+          <path d="M-200,-280 L-200,280 L-20,260 L-20,-260 Z" fill="white" opacity="0.95"/>
+          
+          <!-- Right page -->
+          <path d="M20,-260 L20,260 L200,280 L200,-280 Z" fill="white" opacity="0.95"/>
+          
+          <!-- Book spine -->
+          <rect x="-20" y="-280" width="40" height="560" fill="white" opacity="0.85"/>
+          
+          <!-- Cross on left page -->
+          <g transform="translate(-110, 0)">
+            <rect x="-15" y="-80" width="30" height="160" rx="8" fill="#6750a4"/>
+            <rect x="-60" y="-15" width="120" height="30" rx="8" fill="#6750a4"/>
+          </g>
+          
+          <!-- Text lines on right page -->
+          <rect x="50" y="-200" width="120" height="12" rx="6" fill="#e8def8"/>
+          <rect x="50" y="-160" width="100" height="12" rx="6" fill="#e8def8"/>
+          <rect x="50" y="-120" width="110" height="12" rx="6" fill="#e8def8"/>
+          <rect x="50" y="-80" width="90" height="12" rx="6" fill="#e8def8"/>
+          
+          <rect x="50" y="-20" width="120" height="12" rx="6" fill="#e8def8"/>
+          <rect x="50" y="20" width="100" height="12" rx="6" fill="#e8def8"/>
+          <rect x="50" y="60" width="110" height="12" rx="6" fill="#e8def8"/>
+          
+          <rect x="50" y="120" width="100" height="12" rx="6" fill="#e8def8"/>
+          <rect x="50" y="160" width="120" height="12" rx="6" fill="#e8def8"/>
+          <rect x="50" y="200" width="90" height="12" rx="6" fill="#e8def8"/>
+          
+          <!-- Bookmark -->
+          <path d="M0,-280 L0,320 L-30,280 L-60,320 L-60,-280 Z" fill="#FFD700" opacity="0.9"/>
+        </g>
+        
+        <!-- Subtle shadow effect -->
+        <rect width="1024" height="1024" rx="226" fill="url(#shadow)" opacity="0.1"/>
+        <defs>
+          <radialGradient id="shadow" cx="50%" cy="50%">
+            <stop offset="0%" stop-color="white" stop-opacity="0.2"/>
+            <stop offset="100%" stop-color="black" stop-opacity="0.3"/>
+          </radialGradient>
+        </defs>
+      </svg>
+    </div>
+    
+    <div class="download-section">
+      <button onclick="downloadIcon(1024)">
+        📥 1024x1024 PNG 다운로드 (권장)
+      </button>
+      <button onclick="downloadIcon(512)">
+        📥 512x512 PNG 다운로드
+      </button>
+      <button onclick="downloadSVG()">
+        📥 SVG 다운로드 (벡터)
+      </button>
+    </div>
+    
+    <div class="size-info">
+      <h3>📌 사이즈 가이드</h3>
+      <ul>
+        <li>1024x1024: 앱스토어, 구글 플레이 등록용</li>
+        <li>512x512: 카카오 비즈앱, 웹 매니페스트</li>
+        <li>SVG: 무손실 확대/축소 가능</li>
+      </ul>
+    </div>
+  </div>
+  
+  <canvas id="canvas"></canvas>
+  
+  <script>
+    function downloadIcon(size) {
+      const svg = document.getElementById('appIcon');
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      canvas.width = size;
+      canvas.height = size;
+      
+      const svgData = new XMLSerializer().serializeToString(svg);
+      const img = new Image();
+      const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      
+      img.onload = function() {
+        ctx.drawImage(img, 0, 0, size, size);
+        
+        canvas.toBlob(function(pngBlob) {
+          const pngUrl = URL.createObjectURL(pngBlob);
+          const link = document.createElement('a');
+          link.download = `bible-transcription-icon-${size}x${size}.png`;
+          link.href = pngUrl;
+          link.click();
+          
+          URL.revokeObjectURL(url);
+          URL.revokeObjectURL(pngUrl);
+        });
+      };
+      
+      img.src = url;
+    }
+    
+    function downloadSVG() {
+      const svg = document.getElementById('appIcon');
+      const svgData = new XMLSerializer().serializeToString(svg);
+      const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.download = 'bible-transcription-icon.svg';
+      link.href = url;
+      link.click();
+      
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>

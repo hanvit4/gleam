@@ -18,6 +18,8 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
         provider: 'kakao',
         options: {
           redirectTo: window.location.origin,
+          // 필요한 최소한의 권한만 요청 (닉네임, 이메일만)
+          scopes: 'profile_nickname account_email',
         },
       });
 
