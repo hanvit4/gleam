@@ -305,11 +305,10 @@ export default function App() {
               <button
                 onClick={handleRefresh}
                 disabled={isRefreshing}
-                className={`p-2 rounded-full transition-all ${
-                  isRefreshing
+                className={`p-2 rounded-full transition-all ${isRefreshing
                     ? 'bg-[#d0bcff] cursor-not-allowed'
                     : 'bg-white hover:bg-[#f5f5f5] active:bg-[#e8e8e8]'
-                }`}
+                  }`}
               >
                 <RotateCw
                   className={`w-4 h-4 text-[#6750a4] ${isRefreshing ? 'animate-spin' : ''}`}
@@ -351,11 +350,10 @@ export default function App() {
             <button
               onClick={handleTypingComplete}
               disabled={todayEarned >= DAILY_LIMIT}
-              className={`w-full py-3 rounded-full font-medium text-sm transition-all active:scale-98 ${
-                todayEarned >= DAILY_LIMIT
+              className={`w-full py-3 rounded-full font-medium text-sm transition-all active:scale-98 ${todayEarned >= DAILY_LIMIT
                   ? 'bg-[#e7e0ec] text-[#79747e] cursor-not-allowed'
                   : 'bg-[#6750a4] text-white shadow-md hover:shadow-lg'
-              }`}
+                }`}
             >
               {todayEarned >= DAILY_LIMIT ? (
                 <span className="flex items-center justify-center gap-2">
@@ -422,9 +420,8 @@ export default function App() {
                 return (
                   <div
                     key={day}
-                    className={`aspect-square flex items-center justify-center relative rounded-full ${
-                      isToday ? 'bg-[#e8def8]' : ''
-                    }`}
+                    className={`aspect-square flex items-center justify-center relative rounded-full ${isToday ? 'bg-[#e8def8]' : ''
+                      }`}
                   >
                     {/* Circular Progress */}
                     <svg className="absolute inset-0 w-full h-full" viewBox="0 0 36 36">
@@ -452,13 +449,12 @@ export default function App() {
                     </svg>
                     {/* Day Number */}
                     <span
-                      className={`relative z-10 text-xs font-medium ${
-                        isToday
+                      className={`relative z-10 text-xs font-medium ${isToday
                           ? 'text-[#6750a4] font-bold'
                           : earned > 0
-                          ? 'text-[#1d1b20]'
-                          : 'text-[#79747e]'
-                      }`}
+                            ? 'text-[#1d1b20]'
+                            : 'text-[#79747e]'
+                        }`}
                     >
                       {day}
                     </span>
@@ -496,9 +492,8 @@ export default function App() {
             <nav className="grid grid-cols-3 h-20 px-2">
               <button
                 onClick={() => handleTabChange('home')}
-                className={`flex flex-col items-center justify-center gap-1 transition-colors rounded-[16px] ${
-                  activeTab === 'home' ? 'bg-[#e8def8]' : ''
-                }`}
+                className={`flex flex-col items-center justify-center gap-1 transition-colors rounded-[16px] ${activeTab === 'home' ? 'bg-[#e8def8]' : ''
+                  }`}
               >
                 <div className={`p-1 rounded-[16px] ${activeTab === 'home' ? 'bg-[#6750a4]' : ''}`}>
                   <Home className={`w-6 h-6 ${activeTab === 'home' ? 'text-white' : 'text-[#49454f]'}`} />
@@ -510,9 +505,8 @@ export default function App() {
 
               <button
                 onClick={() => handleTabChange('bible')}
-                className={`flex flex-col items-center justify-center gap-1 transition-colors rounded-[16px] ${
-                  activeTab === 'bible' ? 'bg-[#e8def8]' : ''
-                }`}
+                className={`flex flex-col items-center justify-center gap-1 transition-colors rounded-[16px] ${activeTab === 'bible' ? 'bg-[#e8def8]' : ''
+                  }`}
               >
                 <div className={`p-1 rounded-[16px] ${activeTab === 'bible' ? 'bg-[#6750a4]' : ''}`}>
                   <Book className={`w-6 h-6 ${activeTab === 'bible' ? 'text-white' : 'text-[#49454f]'}`} />
@@ -524,9 +518,8 @@ export default function App() {
 
               <button
                 onClick={() => handleTabChange('profile')}
-                className={`flex flex-col items-center justify-center gap-1 transition-colors rounded-[16px] ${
-                  activeTab === 'profile' ? 'bg-[#e8def8]' : ''
-                }`}
+                className={`flex flex-col items-center justify-center gap-1 transition-colors rounded-[16px] ${activeTab === 'profile' ? 'bg-[#e8def8]' : ''
+                  }`}
               >
                 <div className={`p-1 rounded-[16px] ${activeTab === 'profile' ? 'bg-[#6750a4]' : ''}`}>
                   <User className={`w-6 h-6 ${activeTab === 'profile' ? 'text-white' : 'text-[#49454f]'}`} />

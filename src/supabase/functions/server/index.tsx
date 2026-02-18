@@ -29,13 +29,13 @@ app.use(
 // Middleware to verify auth token
 async function verifyAuth(c: any, next: any) {
   const accessToken = c.req.header('Authorization')?.split(' ')[1];
-  
+
   if (!accessToken) {
     return c.json({ error: 'Unauthorized: No token provided' }, 401);
   }
 
   const { data: { user }, error } = await supabase.auth.getUser(accessToken);
-  
+
   if (error || !user) {
     console.error('Authorization error:', error);
     return c.json({ error: 'Unauthorized: Invalid token' }, 401);
@@ -56,9 +56,9 @@ app.get("/make-server-3ed9c009/user/profile", verifyAuth, async (c) => {
   try {
     const userId = c.get('userId');
     const key = `user:${userId}:profile`;
-    
+
     const profile = await kv.get(key);
-    
+
     if (!profile) {
       // Create default profile for new user
       const user = c.get('user');
@@ -69,11 +69,11 @@ app.get("/make-server-3ed9c009/user/profile", verifyAuth, async (c) => {
         church: '',
         createdAt: new Date().toISOString(),
       };
-      
+
       await kv.set(key, defaultProfile);
       return c.json({ profile: defaultProfile });
     }
-    
+
     return c.json({ profile });
   } catch (error) {
     console.error('Error fetching user profile:', error);
@@ -87,10 +87,10 @@ app.post("/make-server-3ed9c009/user/profile", verifyAuth, async (c) => {
     const userId = c.get('userId');
     const body = await c.req.json();
     const { nickname, church, credits } = body;
-    
+
     const key = `user:${userId}:profile`;
     const existingProfile = await kv.get(key);
-    
+
     const updatedProfile = {
       ...existingProfile,
       userId,
@@ -99,13 +99,13 @@ app.post("/make-server-3ed9c009/user/profile", verifyAuth, async (c) => {
       credits: credits ?? existingProfile?.credits ?? 0,
       updatedAt: new Date().toISOString(),
     };
-    
+
     if (!existingProfile) {
       updatedProfile.createdAt = new Date().toISOString();
     }
-    
+
     await kv.set(key, updatedProfile);
-    
+
     return c.json({ profile: updatedProfile });
   } catch (error) {
     console.error('Error updating user profile:', error);
@@ -119,11 +119,11 @@ app.post("/make-server-3ed9c009/transcription", verifyAuth, async (c) => {
     const userId = c.get('userId');
     const body = await c.req.json();
     const { mode, verse, credits, book, chapter, verseNum } = body;
-    
+
     const timestamp = Date.now();
     const transcriptionId = `${timestamp}-${Math.random().toString(36).substr(2, 9)}`;
     const date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    
+
     // Save transcription record
     const transcription = {
       id: transcriptionId,
@@ -137,30 +137,30 @@ app.post("/make-server-3ed9c009/transcription", verifyAuth, async (c) => {
       date,
       timestamp: new Date().toISOString(),
     };
-    
+
     const transcriptionKey = `user:${userId}:transcription:${transcriptionId}`;
     await kv.set(transcriptionKey, transcription);
-    
+
     // Update daily stats
     const dailyKey = `user:${userId}:daily:${date}`;
     const dailyStats = await kv.get(dailyKey) || { date, earned: 0, count: 0, transcriptions: [] };
-    
+
     dailyStats.earned = (dailyStats.earned || 0) + credits;
     dailyStats.count = (dailyStats.count || 0) + 1;
     dailyStats.transcriptions = [...(dailyStats.transcriptions || []), transcriptionId];
-    
+
     await kv.set(dailyKey, dailyStats);
-    
+
     // Update user credits
     const profileKey = `user:${userId}:profile`;
     const profile = await kv.get(profileKey);
-    
+
     if (profile) {
       profile.credits = (profile.credits || 0) + credits;
       await kv.set(profileKey, profile);
     }
-    
-    return c.json({ 
+
+    return c.json({
       transcription,
       dailyEarned: dailyStats.earned,
       totalCredits: profile?.credits || 0
@@ -176,16 +176,16 @@ app.get("/make-server-3ed9c009/transcriptions", verifyAuth, async (c) => {
   try {
     const userId = c.get('userId');
     const prefix = `user:${userId}:transcription:`;
-    
+
     const transcriptions = await kv.getByPrefix(prefix);
-    
+
     // Sort by timestamp (newest first)
     transcriptions.sort((a, b) => {
       const timeA = new Date(a.timestamp).getTime();
       const timeB = new Date(b.timestamp).getTime();
       return timeB - timeA;
     });
-    
+
     return c.json({ transcriptions });
   } catch (error) {
     console.error('Error fetching transcriptions:', error);
@@ -199,7 +199,7 @@ app.get("/make-server-3ed9c009/daily-stats", verifyAuth, async (c) => {
     const userId = c.get('userId');
     const date = c.req.query('date'); // YYYY-MM-DD
     const month = c.req.query('month'); // YYYY-MM
-    
+
     if (date) {
       // Get single day stats
       const dailyKey = `user:${userId}:daily:${date}`;
@@ -228,9 +228,9 @@ app.get("/make-server-3ed9c009/completed-verses", verifyAuth, async (c) => {
   try {
     const userId = c.get('userId');
     const prefix = `user:${userId}:transcription:`;
-    
+
     const transcriptions = await kv.getByPrefix(prefix);
-    
+
     // Create a map of completed verses: { "창세기-1-1": true, ... }
     const completedVerses: { [key: string]: boolean } = {};
     transcriptions.forEach((t: any) => {
@@ -239,7 +239,7 @@ app.get("/make-server-3ed9c009/completed-verses", verifyAuth, async (c) => {
         completedVerses[key] = true;
       }
     });
-    
+
     return c.json({ completedVerses });
   } catch (error) {
     console.error('Error fetching completed verses:', error);

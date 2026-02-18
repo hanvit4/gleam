@@ -92,9 +92,8 @@ export default function ProfileTab({
           {Array.from({ length: 7 }).map((_, idx) => (
             <div
               key={idx}
-              className={`flex-1 h-2 rounded-full ${
-                idx < consecutiveDays ? 'bg-[#6750a4]' : 'bg-[#d0bcff]'
-              }`}
+              className={`flex-1 h-2 rounded-full ${idx < consecutiveDays ? 'bg-[#6750a4]' : 'bg-[#d0bcff]'
+                }`}
             />
           ))}
         </div>
@@ -144,7 +143,7 @@ export default function ProfileTab({
             <span className="text-[#1d1b20] font-medium text-base">설정</span>
           </div>
         </button>
-        
+
         <button className="w-full flex items-center justify-between p-4 hover:bg-[#f5f5f5] transition-colors active:bg-[#e8e8e8]">
           <div className="flex items-center gap-3">
             <Award className="w-5 h-5 text-[#49454f]" />
@@ -155,15 +154,15 @@ export default function ProfileTab({
           </span>
         </button>
 
-        <button 
-    onClick={handleLogout}
-    className="w-full flex items-center justify-between p-4 hover:bg-[#f5f5f5] transition-colors active:bg-[#e8e8e8] last:rounded-b-[16px]"
-  >
-    <div className="flex items-center gap-3">
-      <LogOut className="w-5 h-5 text-[#ba1a1a]" />
-      <span className="text-[#ba1a1a] font-medium text-base">로그아웃</span>
-    </div>
-  </button>
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center justify-between p-4 hover:bg-[#f5f5f5] transition-colors active:bg-[#e8e8e8] last:rounded-b-[16px]"
+        >
+          <div className="flex items-center gap-3">
+            <LogOut className="w-5 h-5 text-[#ba1a1a]" />
+            <span className="text-[#ba1a1a] font-medium text-base">로그아웃</span>
+          </div>
+        </button>
       </div>
 
       {/* Version Info */}

@@ -80,21 +80,19 @@ export default function BibleReader({ book, chapter, onBack }: BibleReaderProps)
             return (
               <div
                 key={verseNum}
-                className={`rounded-[12px] p-4 transition-all ${
-                  isCompleted
+                className={`rounded-[12px] p-4 transition-all ${isCompleted
                     ? 'bg-[#e8def8] border-l-4 border-[#6750a4]'
                     : 'bg-white border border-[#e7e0ec]'
-                }`}
+                  }`}
               >
                 <div className="flex gap-3">
                   {/* Verse Number */}
                   <div className="flex-shrink-0">
                     <div
-                      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
-                        isCompleted
+                      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${isCompleted
                           ? 'bg-[#6750a4] text-white'
                           : 'bg-[#e7e0ec] text-[#49454f]'
-                      }`}
+                        }`}
                     >
                       {verseNum}
                     </div>
@@ -133,7 +131,7 @@ export default function BibleReader({ book, chapter, onBack }: BibleReaderProps)
                 필사 완료 표시
               </h3>
               <p className="text-[#49454f] text-xs leading-relaxed">
-                보라색 배경은 전문가 모드에서 이미 필사한 구절입니다. 
+                보라색 배경은 전문가 모드에서 이미 필사한 구절입니다.
                 성경을 읽으면서 진행 상황을 확인하세요.
               </p>
             </div>

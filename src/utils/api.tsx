@@ -19,12 +19,12 @@ const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-
 async function getAccessToken(): Promise<string | null> {
   try {
     const { data: { session }, error } = await supabase.auth.getSession();
-    
+
     if (error) {
       console.error('Session error:', error);
       return null;
     }
-    
+
     if (!session) {
       console.error('No session available');
       return null;
@@ -42,7 +42,7 @@ async function getAccessToken(): Promise<string | null> {
 // Generic API call wrapper
 async function apiCall(endpoint: string, options: RequestInit = {}) {
   const token = await getAccessToken();
-  
+
   if (!token) {
     console.error('No token available for endpoint:', endpoint);
     throw new Error('No authentication token available');

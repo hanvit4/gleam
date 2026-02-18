@@ -288,11 +288,10 @@ export default function ExpertTyping({ onBack, onComplete, todayEarned, dailyLim
             <button
               onClick={handleNextVerse}
               disabled={isCorrect !== true || reachedLimit || isProcessing || isSaving}
-              className={`w-full mt-3 py-3 rounded-full font-medium text-sm transition-all active:scale-98 ${
-                isCorrect !== true || reachedLimit || isProcessing || isSaving
+              className={`w-full mt-3 py-3 rounded-full font-medium text-sm transition-all active:scale-98 ${isCorrect !== true || reachedLimit || isProcessing || isSaving
                   ? 'bg-[#e7e0ec] text-[#79747e] cursor-not-allowed'
                   : 'bg-[#6750a4] text-white shadow-md hover:shadow-lg'
-              }`}
+                }`}
             >
               다음
             </button>
