@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Coins, Calendar, CheckCircle2, BookOpen, ChevronLeft, ChevronRight, Home, Book, User } from 'lucide-react';
+import { Coins, Calendar, CheckCircle2, BookOpen, ChevronLeft, ChevronRight, Home, Book, User, RotateCw } from 'lucide-react';
 import BibleTab from './components/BibleTab';
 import ProfileTab from './components/ProfileTab';
 import ModeSelect from './components/ModeSelect';
@@ -13,39 +13,79 @@ import * as api from './utils/api';
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [credits, setCredits] = useState(0);
   const [todayEarned, setTodayEarned] = useState(0);
+  const [nickname, setNickname] = useState('사용자');
+  const [church, setChurch] = useState('');
+  const [totalVersesCompleted, setTotalVersesCompleted] = useState(0);
+  const [consecutiveDays, setConsecutiveDays] = useState(0);
+  const [canCheckIn, setCanCheckIn] = useState(true);
   const DAILY_LIMIT = 300;
   const [activeTab, setActiveTab] = useState('home');
   const [currentScreen, setCurrentScreen] = useState<'home' | 'modeSelect' | 'easyTopics' | 'easyTyping' | 'expertTyping'>('home');
   const [selectedTopic, setSelectedTopic] = useState<string>('');
-  
+
   // Mock data for calendar - 날짜별 획득량 (0-300)
   const [earnedByDate, setEarnedByDate] = useState<{ [key: string]: number }>({});
 
-  const [currentMonth, setCurrentMonth] = useState(new Date(2026, 0)); // January 2026
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), 1);
+  });
 
   // Load user data from API
   const loadUserData = async () => {
     try {
       console.log('Loading user data...');
-      
+
       // Load profile
       const profileRes = await api.getUserProfile();
       console.log('Profile loaded:', profileRes.profile);
       setCredits(profileRes.profile.credits || 0);
-      
+      setNickname(profileRes.profile.nickname || user?.user_metadata?.name || user?.email?.split('@')[0] || '사용자');
+      setChurch(profileRes.profile.church || '');
+
       // Load today's stats
       const todayRes = await api.getDailyStats();
       console.log('Today stats loaded:', todayRes.stats);
       setTodayEarned(todayRes.stats?.earned || 0);
-      
+      setCanCheckIn((todayRes.stats?.count || 0) === 0);
+
+      const transcriptionsRes = await api.getTranscriptions();
+      const transcriptions = Array.isArray(transcriptionsRes?.transcriptions)
+        ? transcriptionsRes.transcriptions
+        : [];
+
+      const uniqueVerses = new Set(
+        transcriptions
+          .filter((item: any) => item?.book && item?.chapter && item?.verseNum)
+          .map((item: any) => `${item.book}-${item.chapter}-${item.verseNum}`)
+      );
+      setTotalVersesCompleted(uniqueVerses.size);
+
+      const activityDates = new Set(
+        transcriptions
+          .map((item: any) => item?.date)
+          .filter((date: string) => !!date)
+      );
+
+      let streak = 0;
+      const cursor = new Date();
+      while (true) {
+        const dateKey = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`;
+        if (!activityDates.has(dateKey)) break;
+        streak += 1;
+        cursor.setDate(cursor.getDate() - 1);
+      }
+      setConsecutiveDays(streak);
+
       // Load current month stats
       const monthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
       const monthRes = await api.getMonthlyStats(monthStr);
       console.log('Month stats loaded:', monthRes.stats);
-      
+
       // Convert month stats to earnedByDate format
       const monthData: { [key: string]: number } = {};
       if (monthRes.stats && Array.isArray(monthRes.stats)) {
@@ -54,9 +94,19 @@ export default function App() {
         });
       }
       setEarnedByDate(monthData);
-      
+
     } catch (error) {
       console.error('Error loading user data:', error);
+    }
+  };
+
+  // Refresh handler
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await loadUserData();
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -67,7 +117,7 @@ export default function App() {
       setIsLoggedIn(!!session);
       setUser(session?.user ?? null);
       setIsLoading(false);
-      
+
       if (session) {
         console.log('로그인된 사용자:', session.user);
         loadUserData();
@@ -80,7 +130,7 @@ export default function App() {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setIsLoggedIn(!!session);
       setUser(session?.user ?? null);
-      
+
       if (session) {
         console.log('인증 상태 변경:', session.user);
         loadUserData();
@@ -159,6 +209,12 @@ export default function App() {
     setActiveTab('home');
   };
 
+  const handleTabChange = (tab: 'home' | 'bible' | 'profile') => {
+    setActiveTab(tab);
+    setCurrentScreen('home');
+    setSelectedTopic('');
+  };
+
   // Render different content based on active tab
   const renderContent = () => {
     // Handle typing screens (override tabs)
@@ -210,9 +266,20 @@ export default function App() {
       return <BibleTab />;
     }
     if (activeTab === 'profile') {
-      return <ProfileTab credits={credits} todayEarned={todayEarned} />;
+      return (
+        <ProfileTab
+          credits={credits}
+          todayEarned={todayEarned}
+          nickname={nickname}
+          email={user?.email || ''}
+          church={church}
+          totalVersesCompleted={totalVersesCompleted}
+          consecutiveDays={consecutiveDays}
+          canCheckIn={canCheckIn}
+        />
+      );
     }
-    
+
     // Home tab content
     return (
       <>
@@ -230,9 +297,24 @@ export default function App() {
 
           {/* Credit Balance Card */}
           <div className="bg-[#e8def8] rounded-[16px] p-4 shadow-sm">
-            <div className="flex items-center gap-2 mb-2">
-              <Coins className="w-5 h-5 text-[#6750a4]" />
-              <span className="text-[#49454f] text-sm font-medium">내 크레딧</span>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Coins className="w-5 h-5 text-[#6750a4]" />
+                <span className="text-[#49454f] text-sm font-medium">내 크레딧</span>
+              </div>
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className={`p-2 rounded-full transition-all ${
+                  isRefreshing
+                    ? 'bg-[#d0bcff] cursor-not-allowed'
+                    : 'bg-white hover:bg-[#f5f5f5] active:bg-[#e8e8e8]'
+                }`}
+              >
+                <RotateCw
+                  className={`w-4 h-4 text-[#6750a4] ${isRefreshing ? 'animate-spin' : ''}`}
+                />
+              </button>
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-[#1d1b20] text-5xl font-bold">{credits.toLocaleString()}</span>
@@ -333,10 +415,17 @@ export default function App() {
                 const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 const earned = earnedByDate[dateStr] || 0;
                 const percentage = getPercentage(earned);
-                const isToday = dateStr === '2026-01-31';
+                const today = new Date();
+                const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                const isToday = dateStr === todayStr;
 
                 return (
-                  <div key={day} className="aspect-square flex items-center justify-center relative">
+                  <div
+                    key={day}
+                    className={`aspect-square flex items-center justify-center relative rounded-full ${
+                      isToday ? 'bg-[#e8def8]' : ''
+                    }`}
+                  >
                     {/* Circular Progress */}
                     <svg className="absolute inset-0 w-full h-full" viewBox="0 0 36 36">
                       <circle
@@ -406,7 +495,7 @@ export default function App() {
           <div className="max-w-[360px] mx-auto">
             <nav className="grid grid-cols-3 h-20 px-2">
               <button
-                onClick={() => setActiveTab('home')}
+                onClick={() => handleTabChange('home')}
                 className={`flex flex-col items-center justify-center gap-1 transition-colors rounded-[16px] ${
                   activeTab === 'home' ? 'bg-[#e8def8]' : ''
                 }`}
@@ -418,9 +507,9 @@ export default function App() {
                   홈
                 </span>
               </button>
-              
+
               <button
-                onClick={() => setActiveTab('bible')}
+                onClick={() => handleTabChange('bible')}
                 className={`flex flex-col items-center justify-center gap-1 transition-colors rounded-[16px] ${
                   activeTab === 'bible' ? 'bg-[#e8def8]' : ''
                 }`}
@@ -432,9 +521,9 @@ export default function App() {
                   성경
                 </span>
               </button>
-              
+
               <button
-                onClick={() => setActiveTab('profile')}
+                onClick={() => handleTabChange('profile')}
                 className={`flex flex-col items-center justify-center gap-1 transition-colors rounded-[16px] ${
                   activeTab === 'profile' ? 'bg-[#e8def8]' : ''
                 }`}

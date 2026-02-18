@@ -248,3 +248,54 @@ app.get("/make-server-3ed9c009/completed-verses", verifyAuth, async (c) => {
 });
 
 Deno.serve(app.fetch);
+
+// --- Bible API (dummy data for now) ---
+const DUMMY_BIBLE = {
+  '창세기': {
+    1: {
+      1: '태초에 하나님이 천지를 창조하시니라',
+      2: '땅이 혼돈하고 공허하며 흑암이 깊음 위에 있고 하나님의 영은 수면 위에 운행하시니라',
+      3: '하나님이 이르시되 빛이 있으라 하시니 빛이 있었고',
+    },
+    2: {
+      1: '천지와 만물이 다 이루어지니라',
+    },
+  },
+};
+
+// GET /make-server-3ed9c009/bible/book/:book/chapter/:chapter
+app.get('/make-server-3ed9c009/bible/book/:book/chapter/:chapter', async (c) => {
+  const { book, chapter } = c.req.param();
+  const chapterNum = Number(chapter);
+  const data = DUMMY_BIBLE[book]?.[chapterNum];
+  if (!data) return c.json({ error: 'Not found' }, 404);
+  return c.json({ book, chapter: chapterNum, verses: data });
+});
+
+// GET /make-server-3ed9c009/bible/book/:book/chapter/:chapter/verse/:verse
+app.get('/make-server-3ed9c009/bible/book/:book/chapter/:chapter/verse/:verse', async (c) => {
+  const { book, chapter, verse } = c.req.param();
+  const chapterNum = Number(chapter);
+  const verseNum = Number(verse);
+  const text = DUMMY_BIBLE[book]?.[chapterNum]?.[verseNum];
+  if (!text) return c.json({ error: 'Not found' }, 404);
+  return c.json({ book, chapter: chapterNum, verse: verseNum, text });
+});
+
+// GET /make-server-3ed9c009/bible/search?q=...
+app.get('/make-server-3ed9c009/bible/search', async (c) => {
+  const q = (c.req.query('q') || '').trim();
+  if (!q) return c.json({ results: [] });
+  // Dummy search: scan all dummy verses
+  const results = [];
+  for (const [book, chapters] of Object.entries(DUMMY_BIBLE)) {
+    for (const [chapter, verses] of Object.entries(chapters)) {
+      for (const [verse, text] of Object.entries(verses)) {
+        if (typeof text === 'string' && text.includes(q)) {
+          results.push({ book, chapter: Number(chapter), verse: Number(verse), text });
+        }
+      }
+    }
+  }
+  return c.json({ results });
+});

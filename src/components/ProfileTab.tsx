@@ -1,26 +1,50 @@
 import { User, Award, Calendar, TrendingUp, Settings, LogOut, CheckCircle2 } from 'lucide-react';
+import { supabase } from '../utils/supabase/client';
 
 interface ProfileTabProps {
   credits?: number;
   todayEarned?: number;
+  nickname?: string;
+  email?: string;
+  church?: string;
+  totalVersesCompleted?: number;
+  consecutiveDays?: number;
+  canCheckIn?: boolean;
 }
 
-export default function ProfileTab({ credits = 12500, todayEarned = 0 }: ProfileTabProps) {
-  // Mock data
-  const totalVersesCompleted = 142;
-  const consecutiveDays = 7;
-  const lastCheckIn = '2026-02-03';
-  const canCheckIn = true; // 오늘 출석 체크 가능 여부
+export default function ProfileTab({
+  credits = 0,
+  todayEarned = 0,
+  nickname = '사용자',
+  email = '',
+  church = '',
+  totalVersesCompleted = 0,
+  consecutiveDays = 0,
+  canCheckIn = true,
+}: ProfileTabProps) {
+  const profileInitial = (nickname?.trim()?.charAt(0) || 'U').toUpperCase();
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      // App 컴포넌트에서 supabase.auth.onAuthStateChange로 인증 상태를 감지하고
+      // 로그인 화면으로 돌아가므로 여기서는 추가 네비게이션이 필요 없습니다.
+      // 필요하면 강제 리로드: window.location.reload();
+    } catch (error) {
+      console.error('로그아웃 에러:', error);
+      alert('로그아웃 중 오류가 발생했습니다.');
+    }
+  };
 
   return (
     <div className="px-4 pt-12 pb-4">
       {/* Profile Header */}
       <div className="text-center mb-6">
         <div className="w-24 h-24 bg-[#6750a4] rounded-full flex items-center justify-center mx-auto mb-4">
-          <span className="text-white text-4xl font-bold">U</span>
+          <span className="text-white text-4xl font-bold">{profileInitial}</span>
         </div>
-        <h1 className="text-[#1d1b20] text-2xl font-bold mb-1">사용자님</h1>
-        <p className="text-[#49454f] text-sm">user@example.com</p>
+        <h1 className="text-[#1d1b20] text-2xl font-bold mb-1">{nickname}님</h1>
+        <p className="text-[#49454f] text-sm">{email || '이메일 정보 없음'}</p>
       </div>
 
       {/* Credit Card */}
@@ -51,8 +75,11 @@ export default function ProfileTab({ credits = 12500, todayEarned = 0 }: Profile
             </div>
           </div>
           {canCheckIn ? (
-            <button className="px-4 py-2 bg-[#6750a4] text-white rounded-full text-sm font-medium hover:shadow-md transition-all active:scale-95">
-              체크인
+            <button
+              disabled
+              className="px-4 py-2 bg-[#6750a4] text-white rounded-full text-sm font-medium opacity-70 cursor-not-allowed"
+            >
+              필사하면 체크인
             </button>
           ) : (
             <div className="flex items-center gap-1 text-[#4caf50]">
@@ -101,7 +128,7 @@ export default function ProfileTab({ credits = 12500, todayEarned = 0 }: Profile
             <h3 className="text-[#1d1b20] font-semibold text-base mb-1">
               소속 교회
             </h3>
-            <p className="text-[#49454f] text-sm">등록된 교회가 없습니다</p>
+            <p className="text-[#49454f] text-sm">{church || '등록된 교회가 없습니다'}</p>
           </div>
           <button className="px-4 py-2 bg-[#e8def8] text-[#6750a4] rounded-full text-sm font-medium hover:bg-[#d0bcff] transition-all active:scale-95">
             등록하기
@@ -128,12 +155,15 @@ export default function ProfileTab({ credits = 12500, todayEarned = 0 }: Profile
           </span>
         </button>
 
-        <button className="w-full flex items-center justify-between p-4 hover:bg-[#f5f5f5] transition-colors active:bg-[#e8e8e8] last:rounded-b-[16px]">
-          <div className="flex items-center gap-3">
-            <LogOut className="w-5 h-5 text-[#ba1a1a]" />
-            <span className="text-[#ba1a1a] font-medium text-base">로그아웃</span>
-          </div>
-        </button>
+        <button 
+    onClick={handleLogout}
+    className="w-full flex items-center justify-between p-4 hover:bg-[#f5f5f5] transition-colors active:bg-[#e8e8e8] last:rounded-b-[16px]"
+  >
+    <div className="flex items-center gap-3">
+      <LogOut className="w-5 h-5 text-[#ba1a1a]" />
+      <span className="text-[#ba1a1a] font-medium text-base">로그아웃</span>
+    </div>
+  </button>
       </div>
 
       {/* Version Info */}

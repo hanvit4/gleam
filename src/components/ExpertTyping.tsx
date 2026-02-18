@@ -40,10 +40,48 @@ export default function ExpertTyping({ onBack, onComplete, todayEarned, dailyLim
   const [reachedLimit, setReachedLimit] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false); // Prevent double-processing
+  const [isLoadingProgress, setIsLoadingProgress] = useState(true);
 
   const currentVerse = bibleVerses[currentVerseIndex];
   const remainingCredits = dailyLimit - todayEarned;
   const canEarnMore = remainingCredits > 0;
+
+  const handleNextVerse = async () => {
+    if (isCorrect !== true || isProcessing) return;
+
+    setIsProcessing(true);
+
+    const newSessionEarned = sessionEarned + 10;
+    const newTotalEarned = todayEarned + newSessionEarned;
+
+    setSessionEarned(newSessionEarned);
+    setShowCreditAnimation(true);
+
+    await saveTranscriptionToDB(currentVerse, 10);
+
+    if (newTotalEarned >= dailyLimit) {
+      setReachedLimit(true);
+      setTimeout(() => {
+        onComplete(newSessionEarned);
+      }, 2000);
+      return;
+    }
+
+    setTimeout(() => {
+      setShowCreditAnimation(false);
+
+      const nextIndex = currentVerseIndex + 1;
+      if (nextIndex < bibleVerses.length) {
+        setCurrentVerseIndex(nextIndex);
+        setUserInput('');
+        setIsCorrect(null);
+        setIsProcessing(false);
+        return;
+      }
+
+      onComplete(newSessionEarned);
+    }, 700);
+  };
 
   // Save transcription to DB
   const saveTranscriptionToDB = async (verse: Verse, credits: number) => {
@@ -77,50 +115,61 @@ export default function ExpertTyping({ onBack, onComplete, todayEarned, dailyLim
 
     if (trimmedInput === targetText) {
       setIsCorrect(true);
-      setIsProcessing(true); // Prevent double-processing
-
-      // Calculate new earned amount
-      const newSessionEarned = sessionEarned + 10;
-      const newTotalEarned = todayEarned + newSessionEarned;
-
-      // Trigger credit animation
-      setShowCreditAnimation(true);
-      setSessionEarned(newSessionEarned);
-
-      // Save to DB
-      saveTranscriptionToDB(currentVerse, 10);
-
-      // Check if daily limit reached AFTER adding credits
-      if (newTotalEarned >= dailyLimit) {
-        setReachedLimit(true);
-        
-        setTimeout(() => {
-          onComplete(newSessionEarned);
-        }, 2000);
-        return;
-      }
-
-      // Move to next verse after delay
-      setTimeout(() => {
-        setShowCreditAnimation(false);
-        if (currentVerseIndex < bibleVerses.length - 1) {
-          setCurrentVerseIndex(currentVerseIndex + 1);
-          setUserInput('');
-          setIsCorrect(null);
-          setIsProcessing(false); // Re-enable processing for next verse
-        } else {
-          // Chapter completed
-          setTimeout(() => {
-            onComplete(newSessionEarned);
-          }, 500);
-        }
-      }, 1500);
     } else if (targetText.startsWith(trimmedInput)) {
       setIsCorrect(null); // Still typing correctly
     } else {
       setIsCorrect(false); // Wrong input
     }
-  }, [userInput]);
+  }, [userInput, currentVerse.text, isProcessing]);
+
+  // Load user's progress on mount
+  useEffect(() => {
+    const loadProgress = async () => {
+      try {
+        const transcriptions = await api.getTranscriptions();
+        console.log('User transcriptions:', transcriptions);
+
+        const items = Array.isArray(transcriptions?.transcriptions)
+          ? transcriptions.transcriptions
+          : [];
+
+        if (items.length === 0) return;
+
+        const expertItems = items.filter((item: any) => {
+          const mode = item?.mode ?? item?.typingMode;
+          return mode === 'expert';
+        });
+
+        if (expertItems.length === 0) return;
+
+        const completedVerseIndexes = expertItems
+          .map((item: any) =>
+            bibleVerses.findIndex(
+              (v) =>
+                v.book === item?.book &&
+                v.chapter === item?.chapter &&
+                v.verse === item?.verseNum
+            )
+          )
+          .filter((index: number) => index >= 0);
+
+        if (completedVerseIndexes.length === 0) return;
+
+        const furthestCompletedIndex = Math.max(...completedVerseIndexes);
+
+        if (furthestCompletedIndex < bibleVerses.length - 1) {
+          setCurrentVerseIndex(furthestCompletedIndex + 1);
+        }
+      } catch (error) {
+        console.error('Failed to load progress:', error);
+      } finally {
+        setIsLoadingProgress(false);
+      }
+    };
+
+    loadProgress();
+  }, []);
+
 
   const getHighlightedText = () => {
     const targetText = currentVerse.text;
@@ -185,50 +234,71 @@ export default function ExpertTyping({ onBack, onComplete, todayEarned, dailyLim
         )}
       </div>
 
-      {/* Verse Reference */}
-      <div className="text-center mb-4">
-        <span className="text-[#6750a4] font-semibold text-base">
-          {currentVerse.book} {currentVerse.chapter}:{currentVerse.verse}
-        </span>
-      </div>
-
-      {/* Verse Text Display */}
-      <div className="bg-white rounded-[16px] p-6 shadow-sm mb-4 min-h-[120px]">
-        <p className="text-lg leading-relaxed">
-          {getHighlightedText()}
-        </p>
-      </div>
-
-      {/* Input Area */}
-      <div className="bg-white rounded-[16px] p-4 shadow-sm">
-        <textarea
-          value={userInput}
-          onChange={(e) => setUserInput(e.target.value)}
-          placeholder="여기에 성경 구절을 입력하세요..."
-          className="w-full min-h-[120px] text-base text-[#1d1b20] placeholder:text-[#79747e] focus:outline-none resize-none"
-          autoFocus
-          disabled={!canEarnMore}
-        />
-        
-        {/* Status Indicator */}
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#e7e0ec]">
-          <span className="text-sm text-[#49454f]">
-            {userInput.trim().length} / {currentVerse.text.length} 자
-          </span>
-          {isCorrect === true && (
-            <div className="flex items-center gap-1 text-[#4caf50]">
-              <Check className="w-5 h-5" />
-              <span className="text-sm font-medium">완료!</span>
-            </div>
-          )}
-          {isCorrect === false && (
-            <div className="flex items-center gap-1 text-[#ba1a1a]">
-              <X className="w-5 h-5" />
-              <span className="text-sm font-medium">다시 확인하세요</span>
-            </div>
-          )}
+      {isLoadingProgress ? (
+        <div className="bg-white rounded-[16px] p-6 shadow-sm mb-4 min-h-[180px] flex flex-col items-center justify-center">
+          <div className="w-8 h-8 border-4 border-[#6750a4] border-t-transparent rounded-full animate-spin mb-3" />
+          <p className="text-[#49454f] text-sm">이어쓰기 정보를 불러오는 중...</p>
         </div>
-      </div>
+      ) : (
+        <>
+          {/* Verse Reference */}
+          <div className="text-center mb-4">
+            <span className="text-[#6750a4] font-semibold text-base">
+              {currentVerse.book} {currentVerse.chapter}:{currentVerse.verse}
+            </span>
+          </div>
+
+          {/* Verse Text Display */}
+          <div className="bg-white rounded-[16px] p-6 shadow-sm mb-4 min-h-[120px]">
+            <p className="text-lg leading-relaxed">
+              {getHighlightedText()}
+            </p>
+          </div>
+
+          {/* Input Area */}
+          <div className="bg-white rounded-[16px] p-4 shadow-sm">
+            <textarea
+              value={userInput}
+              onChange={(e) => setUserInput(e.target.value)}
+              placeholder="여기에 성경 구절을 입력하세요..."
+              className="w-full min-h-[120px] text-base text-[#1d1b20] placeholder:text-[#79747e] focus:outline-none resize-none"
+              autoFocus
+              disabled={!canEarnMore || isProcessing}
+            />
+
+            {/* Status Indicator */}
+            <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#e7e0ec]">
+              <span className="text-sm text-[#49454f]">
+                {userInput.trim().length} / {currentVerse.text.length} 자
+              </span>
+              {isCorrect === true && (
+                <div className="flex items-center gap-1 text-[#4caf50]">
+                  <Check className="w-5 h-5" />
+                  <span className="text-sm font-medium">완료!</span>
+                </div>
+              )}
+              {isCorrect === false && (
+                <div className="flex items-center gap-1 text-[#ba1a1a]">
+                  <X className="w-5 h-5" />
+                  <span className="text-sm font-medium">다시 확인하세요</span>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={handleNextVerse}
+              disabled={isCorrect !== true || reachedLimit || isProcessing || isSaving}
+              className={`w-full mt-3 py-3 rounded-full font-medium text-sm transition-all active:scale-98 ${
+                isCorrect !== true || reachedLimit || isProcessing || isSaving
+                  ? 'bg-[#e7e0ec] text-[#79747e] cursor-not-allowed'
+                  : 'bg-[#6750a4] text-white shadow-md hover:shadow-lg'
+              }`}
+            >
+              다음
+            </button>
+          </div>
+        </>
+      )}
 
       {/* Credit Animation */}
       <AnimatePresence>
@@ -275,12 +345,13 @@ export default function ExpertTyping({ onBack, onComplete, todayEarned, dailyLim
         )}
       </AnimatePresence>
 
-      {/* Tip */}
-      <div className="mt-4 p-3 bg-[#e8def8] rounded-[12px]">
-        <p className="text-[#1d1b20] text-xs text-center">
-          💡 띄어쓰기와 문장부호까지 정확히 입력해주세요
-        </p>
-      </div>
+      {!isLoadingProgress && (
+        <div className="mt-4 p-3 bg-[#e8def8] rounded-[12px]">
+          <p className="text-[#1d1b20] text-xs text-center">
+            💡 띄어쓰기와 문장부호까지 정확히 입력해주세요
+          </p>
+        </div>
+      )}
     </div>
   );
 }
