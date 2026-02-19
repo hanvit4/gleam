@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, Trash2, Plus } from 'lucide-react';
 import * as api from '../utils/api';
+import { supabase } from '../utils/supabase/client';
 
 interface Provider {
     id: string;
@@ -64,16 +65,50 @@ export default function LinkedProviders({ onRefresh }: LinkedProvidersProps) {
     };
 
     const handleLinkGoogle = async () => {
-        // 실제 Google OAuth 로그인 구현 필요
-        // 1. Google OAuth 팝업 열기
-        // 2. 인증 후 provider 정보 수집
-        // 3. linkProvider() 호출
-        alert('Google 계정 연동은 준비 중입니다.');
+        try {
+            // Supabase의 linkIdentity를 사용하여 Google 계정 연동
+            const { data, error } = await supabase.auth.linkIdentity({
+                provider: 'google',
+            });
+
+            if (error) {
+                console.error('Google 연동 실패:', error);
+                alert('Google 계정 연동에 실패했습니다.');
+                return;
+            }
+
+            // 연동 성공 후 목록 새로고침
+            await loadProviders();
+            onRefresh?.();
+        } catch (err) {
+            console.error('Google 연동 에러:', err);
+            alert('Google 계정 연동 중 오류가 발생했습니다.');
+        }
     };
 
     const handleLinkKakao = async () => {
-        // 실제 Kakao OAuth 로그인 구현 필요
-        alert('Kakao 계정 연동은 준비 중입니다.');
+        try {
+            // Supabase의 linkIdentity를 사용하여 Kakao 계정 연동
+            const { data, error } = await supabase.auth.linkIdentity({
+                provider: 'kakao',
+                options: {
+                    scopes: 'profile_nickname account_email',
+                },
+            });
+
+            if (error) {
+                console.error('Kakao 연동 실패:', error);
+                alert('Kakao 계정 연동에 실패했습니다.');
+                return;
+            }
+
+            // 연동 성공 후 목록 새로고침
+            await loadProviders();
+            onRefresh?.();
+        } catch (err) {
+            console.error('Kakao 연동 에러:', err);
+            alert('Kakao 계정 연동 중 오류가 발생했습니다.');
+        }
     };
 
     const getConfig = (provider: string) => {
@@ -109,8 +144,8 @@ export default function LinkedProviders({ onRefresh }: LinkedProvidersProps) {
                                         <span className="text-xl">{config.icon}</span>
                                         <div className="flex-1">
                                             <p className="text-[#1d1b20] font-medium text-sm">{config.name}</p>
-                                            {p.email && (
-                                                <p className="text-[#79747e] text-xs">{p.email}</p>
+                                            {p.provider_email && (
+                                                <p className="text-[#79747e] text-xs">{p.provider_email}</p>
                                             )}
                                         </div>
                                     </div>

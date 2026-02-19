@@ -1,6 +1,7 @@
 import { User, Award, Calendar, TrendingUp, Settings, LogOut, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../utils/supabase/client';
 import LinkedProviders from './LinkedProviders';
+import AdBanner from './AdBanner';
 
 interface ProfileTabProps {
   credits?: number;
@@ -169,6 +170,16 @@ export default function ProfileTab({
             <span className="text-[#ba1a1a] font-medium text-base">로그아웃</span>
           </div>
         </button>
+      </div>
+
+      {/* AdSense Banner */}
+      <div className="mb-4">
+        <AdBanner
+          slot="your-ad-slot-id-here"
+          format="auto"
+          responsive={true}
+          className="bg-[#f5f5f5] rounded-[16px] overflow-hidden"
+        />
       </div>
 
       {/* Version Info */}

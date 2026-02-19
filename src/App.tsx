@@ -7,6 +7,7 @@ import EasyTopics from './components/EasyTopics';
 import EasyTyping from './components/EasyTyping';
 import ExpertTyping from './components/ExpertTyping';
 import LoginScreen from './components/LoginScreen';
+import AdBanner from './components/AdBanner';
 import { supabase } from './utils/supabase/client';
 import * as api from './utils/api';
 
@@ -456,6 +457,16 @@ export default function App() {
                 <span>100% 달성</span>
               </div>
             </div>
+          </div>
+
+          {/* AdSense Banner */}
+          <div className="mt-4">
+            <AdBanner
+              slot="your-ad-slot-id-here"
+              format="auto"
+              responsive={true}
+              className="bg-[#f5f5f5] rounded-[16px] overflow-hidden"
+            />
           </div>
         </div>
       </>
