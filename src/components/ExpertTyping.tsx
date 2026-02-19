@@ -87,6 +87,10 @@ export default function ExpertTyping({ onBack, onComplete, todayEarned, dailyLim
   const saveTranscriptionToDB = async (verse: Verse, credits: number) => {
     try {
       setIsSaving(true);
+      // 로컬 시간대 기준 날짜 계산
+      const now = new Date();
+      const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
       const result = await api.saveTranscription({
         mode: 'expert',
         verse: verse.text,
@@ -94,6 +98,7 @@ export default function ExpertTyping({ onBack, onComplete, todayEarned, dailyLim
         book: verse.book,
         chapter: verse.chapter,
         verseNum: verse.verse,
+        date: localDate,
       });
       console.log('Transcription saved:', result);
     } catch (error) {
@@ -126,42 +131,51 @@ export default function ExpertTyping({ onBack, onComplete, todayEarned, dailyLim
   useEffect(() => {
     const loadProgress = async () => {
       try {
-        const transcriptions = await api.getTranscriptions();
-        console.log('User transcriptions:', transcriptions);
+        console.log('Loading expert mode progress...');
 
-        const items = Array.isArray(transcriptions?.transcriptions)
-          ? transcriptions.transcriptions
-          : [];
+        // Get completed verses from API
+        const result = await api.getCompletedVerses();
+        console.log('API response:', result);
 
-        if (items.length === 0) return;
+        if (!result || result.error) {
+          console.error('Error from API:', result?.error);
+          return;
+        }
 
-        const expertItems = items.filter((item: any) => {
-          const mode = item?.mode ?? item?.typingMode;
-          return mode === 'expert';
-        });
+        const completedVersesMap = result.completedVerses || {};
+        console.log('Completed verses map:', completedVersesMap);
+        console.log('Number of completed verses:', Object.keys(completedVersesMap).length);
 
-        if (expertItems.length === 0) return;
-
-        const completedVerseIndexes = expertItems
-          .map((item: any) =>
-            bibleVerses.findIndex(
-              (v) =>
-                v.book === item?.book &&
-                v.chapter === item?.chapter &&
-                v.verse === item?.verseNum
-            )
-          )
+        // Find all completed verses in bibleVerses array
+        const completedVerseIndexes = bibleVerses
+          .map((verse, index) => {
+            const key = `${verse.book}-${verse.chapter}-${verse.verse}`;
+            return completedVersesMap[key] ? index : -1;
+          })
           .filter((index: number) => index >= 0);
 
-        if (completedVerseIndexes.length === 0) return;
+        console.log('Completed verse indexes:', completedVerseIndexes);
+
+        if (completedVerseIndexes.length === 0) {
+          console.log('No completed verses found, starting from first');
+          setCurrentVerseIndex(0);
+          return;
+        }
 
         const furthestCompletedIndex = Math.max(...completedVerseIndexes);
+        console.log('Furthest completed index:', furthestCompletedIndex);
 
+        // Move to next verse after the furthest completed
         if (furthestCompletedIndex < bibleVerses.length - 1) {
-          setCurrentVerseIndex(furthestCompletedIndex + 1);
+          const nextIndex = furthestCompletedIndex + 1;
+          setCurrentVerseIndex(nextIndex);
+          console.log('Set current verse index to:', nextIndex);
+        } else {
+          console.log('All verses completed!');
         }
       } catch (error) {
         console.error('Failed to load progress:', error);
+        setCurrentVerseIndex(0);
       } finally {
         setIsLoadingProgress(false);
       }
@@ -169,7 +183,6 @@ export default function ExpertTyping({ onBack, onComplete, todayEarned, dailyLim
 
     loadProgress();
   }, []);
-
 
   const getHighlightedText = () => {
     const targetText = currentVerse.text;
@@ -289,8 +302,8 @@ export default function ExpertTyping({ onBack, onComplete, todayEarned, dailyLim
               onClick={handleNextVerse}
               disabled={isCorrect !== true || reachedLimit || isProcessing || isSaving}
               className={`w-full mt-3 py-3 rounded-full font-medium text-sm transition-all active:scale-98 ${isCorrect !== true || reachedLimit || isProcessing || isSaving
-                  ? 'bg-[#e7e0ec] text-[#79747e] cursor-not-allowed'
-                  : 'bg-[#6750a4] text-white shadow-md hover:shadow-lg'
+                ? 'bg-[#e7e0ec] text-[#79747e] cursor-not-allowed'
+                : 'bg-[#6750a4] text-white shadow-md hover:shadow-lg'
                 }`}
             >
               다음

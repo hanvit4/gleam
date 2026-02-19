@@ -43,43 +43,16 @@ export default function App() {
       // Load profile
       const profileRes = await api.getUserProfile();
       console.log('Profile loaded:', profileRes.profile);
-      setCredits(profileRes.profile.credits || 0);
-      setNickname(profileRes.profile.nickname || user?.user_metadata?.name || user?.email?.split('@')[0] || '사용자');
-      setChurch(profileRes.profile.church || '');
+      setCredits(profileRes.profile.creditsEarned || 0);
+      setNickname(profileRes.profile.name || user?.user_metadata?.name || user?.email?.split('@')[0] || '사용자');
 
-      // Load today's stats
-      const todayRes = await api.getDailyStats();
+      // Load today's stats (로컬 날짜 기준)
+      const now = new Date();
+      const localToday = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const todayRes = await api.getDailyStats(localToday);
       console.log('Today stats loaded:', todayRes.stats);
-      setTodayEarned(todayRes.stats?.earned || 0);
+      setTodayEarned(todayRes.stats?.credits_earned || 0);
       setCanCheckIn((todayRes.stats?.count || 0) === 0);
-
-      const transcriptionsRes = await api.getTranscriptions();
-      const transcriptions = Array.isArray(transcriptionsRes?.transcriptions)
-        ? transcriptionsRes.transcriptions
-        : [];
-
-      const uniqueVerses = new Set(
-        transcriptions
-          .filter((item: any) => item?.book && item?.chapter && item?.verseNum)
-          .map((item: any) => `${item.book}-${item.chapter}-${item.verseNum}`)
-      );
-      setTotalVersesCompleted(uniqueVerses.size);
-
-      const activityDates = new Set(
-        transcriptions
-          .map((item: any) => item?.date)
-          .filter((date: string) => !!date)
-      );
-
-      let streak = 0;
-      const cursor = new Date();
-      while (true) {
-        const dateKey = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`;
-        if (!activityDates.has(dateKey)) break;
-        streak += 1;
-        cursor.setDate(cursor.getDate() - 1);
-      }
-      setConsecutiveDays(streak);
 
       // Load current month stats
       const monthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
@@ -90,7 +63,7 @@ export default function App() {
       const monthData: { [key: string]: number } = {};
       if (monthRes.stats && Array.isArray(monthRes.stats)) {
         monthRes.stats.forEach((stat: any) => {
-          monthData[stat.date] = stat.earned || 0;
+          monthData[stat.date] = stat.credits_earned || 0;
         });
       }
       setEarnedByDate(monthData);
@@ -120,7 +93,10 @@ export default function App() {
 
       if (session) {
         console.log('로그인된 사용자:', session.user);
-        loadUserData();
+        // Ensure user profile exists in users table
+        api.ensureUserProfileExists(session).then(() => {
+          loadUserData();
+        });
       }
     });
 
@@ -133,7 +109,10 @@ export default function App() {
 
       if (session) {
         console.log('인증 상태 변경:', session.user);
-        loadUserData();
+        // Ensure user profile exists in users table
+        api.ensureUserProfileExists(session).then(() => {
+          loadUserData();
+        });
       }
     });
 
@@ -148,7 +127,7 @@ export default function App() {
         const monthData: { [key: string]: number } = {};
         if (monthRes.stats && Array.isArray(monthRes.stats)) {
           monthRes.stats.forEach((stat: any) => {
-            monthData[stat.date] = stat.earned || 0;
+            monthData[stat.date] = stat.credits_earned || 0;
           });
         }
         setEarnedByDate(monthData);
@@ -288,10 +267,10 @@ export default function App() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <p className="text-[#49454f] text-sm">안녕하세요!</p>
-              <h1 className="text-[#1d1b20] text-2xl mt-1">사용자님</h1>
+              <h1 className="text-[#1d1b20] text-2xl mt-1">{nickname}님</h1>
             </div>
             <div className="w-10 h-10 bg-[#6750a4] rounded-full flex items-center justify-center">
-              <span className="text-white font-medium">U</span>
+              <span className="text-white font-medium">{nickname.charAt(0).toUpperCase()}</span>
             </div>
           </div>
 
@@ -306,8 +285,8 @@ export default function App() {
                 onClick={handleRefresh}
                 disabled={isRefreshing}
                 className={`p-2 rounded-full transition-all ${isRefreshing
-                    ? 'bg-[#d0bcff] cursor-not-allowed'
-                    : 'bg-white hover:bg-[#f5f5f5] active:bg-[#e8e8e8]'
+                  ? 'bg-[#d0bcff] cursor-not-allowed'
+                  : 'bg-white hover:bg-[#f5f5f5] active:bg-[#e8e8e8]'
                   }`}
               >
                 <RotateCw
@@ -351,8 +330,8 @@ export default function App() {
               onClick={handleTypingComplete}
               disabled={todayEarned >= DAILY_LIMIT}
               className={`w-full py-3 rounded-full font-medium text-sm transition-all active:scale-98 ${todayEarned >= DAILY_LIMIT
-                  ? 'bg-[#e7e0ec] text-[#79747e] cursor-not-allowed'
-                  : 'bg-[#6750a4] text-white shadow-md hover:shadow-lg'
+                ? 'bg-[#e7e0ec] text-[#79747e] cursor-not-allowed'
+                : 'bg-[#6750a4] text-white shadow-md hover:shadow-lg'
                 }`}
             >
               {todayEarned >= DAILY_LIMIT ? (
@@ -420,9 +399,12 @@ export default function App() {
                 return (
                   <div
                     key={day}
-                    className={`aspect-square flex items-center justify-center relative rounded-full ${isToday ? 'bg-[#e8def8]' : ''
-                      }`}
+                    className="aspect-square flex items-center justify-center relative"
                   >
+                    {/* Today Highlight Background - smaller and behind progress */}
+                    {isToday && (
+                      <div className="absolute inset-0 bg-[#e8def8] rounded-full scale-75 opacity-50" />
+                    )}
                     {/* Circular Progress */}
                     <svg className="absolute inset-0 w-full h-full" viewBox="0 0 36 36">
                       <circle
@@ -450,10 +432,10 @@ export default function App() {
                     {/* Day Number */}
                     <span
                       className={`relative z-10 text-xs font-medium ${isToday
-                          ? 'text-[#6750a4] font-bold'
-                          : earned > 0
-                            ? 'text-[#1d1b20]'
-                            : 'text-[#79747e]'
+                        ? 'text-[#6750a4] font-bold'
+                        : earned > 0
+                          ? 'text-[#1d1b20]'
+                          : 'text-[#79747e]'
                         }`}
                     >
                       {day}

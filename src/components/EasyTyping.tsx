@@ -64,6 +64,10 @@ export default function EasyTyping({ topicId, onBack, onComplete }: EasyTypingPr
   const saveTranscriptionToDB = async (verse: Verse, credits: number) => {
     try {
       setIsSaving(true);
+      // 로컬 시간대 기준 날짜 계산
+      const now = new Date();
+      const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
       const result = await api.saveTranscription({
         mode: 'easy',
         verse: verse.text,
@@ -71,6 +75,7 @@ export default function EasyTyping({ topicId, onBack, onComplete }: EasyTypingPr
         book: verse.book || '',
         chapter: verse.chapter || 0,
         verseNum: verse.verseNum || 0,
+        date: localDate,
       });
       console.log('Transcription saved:', result);
     } catch (error) {
@@ -193,7 +198,7 @@ export default function EasyTyping({ topicId, onBack, onComplete }: EasyTypingPr
           className="w-full min-h-[120px] text-base text-[#1d1b20] placeholder:text-[#79747e] focus:outline-none resize-none"
           autoFocus
         />
-        
+
         {/* Status Indicator */}
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#e7e0ec]">
           <span className="text-sm text-[#49454f]">

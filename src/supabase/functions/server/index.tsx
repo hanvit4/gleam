@@ -1,8 +1,7 @@
 import { Hono } from "npm:hono";
 import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
-import { createClient } from "npm:@supabase/supabase-js@2";
-import * as kv from "./kv_store.tsx";
+import { createClient } from "npm:@supabase/supabase-js";
 const app = new Hono();
 
 // Supabase client for auth verification
@@ -67,13 +66,13 @@ app.get("/make-server-3ed9c009/user/profile", verifyAuth, async (c) => {
       return c.json({ error: 'User profile not found' }, 404);
     }
 
-    // daily_credits에서 오늘 크레딧 조회
-    const today = new Date().toISOString().split('T')[0];
-    const { data: creditData } = await supabase.from('daily_credits')
+    // daily_credits에서 전체 크레딧 합계 조회
+    const { data: allCredits } = await supabase.from('daily_credits')
       .select('credits_earned, credits_spent')
-      .eq('user_id', userRecord.id)
-      .eq('date', today)
-      .single();
+      .eq('user_id', userRecord.id);
+
+    const totalEarned = allCredits?.reduce((sum, record) => sum + (record.credits_earned || 0), 0) || 0;
+    const totalSpent = allCredits?.reduce((sum, record) => sum + (record.credits_spent || 0), 0) || 0;
 
     const profile = {
       userId: userRecord.id,
@@ -81,8 +80,8 @@ app.get("/make-server-3ed9c009/user/profile", verifyAuth, async (c) => {
       name: userRecord.name || 'User',
       avatarUrl: userRecord.avatar_url,
       provider: userRecord.provider,
-      creditsEarned: creditData?.credits_earned || 0,
-      creditsSpent: creditData?.credits_spent || 0,
+      creditsEarned: totalEarned,
+      creditsSpent: totalSpent,
       createdAt: userRecord.created_at,
     };
 
@@ -126,7 +125,7 @@ app.post("/make-server-3ed9c009/transcription", verifyAuth, async (c) => {
   try {
     const authUserId = c.get('userId');
     const body = await c.req.json();
-    const { mode, verse, credits, book, chapter, verseNum } = body;
+    const { mode, verse, credits, book, chapter, verseNum, date: clientDate } = body;
 
     // 1. users 테이블에서 user_id 조회
     const { data: userRecord } = await supabase.from('users')
@@ -139,65 +138,89 @@ app.post("/make-server-3ed9c009/transcription", verifyAuth, async (c) => {
     }
 
     const userId = userRecord.id;
-    const date = new Date().toISOString().split('T')[0];
+    // 클라이언트에서 보낸 날짜 사용, 없으면 UTC 날짜
+    const date = clientDate || new Date().toISOString().split('T')[0];
 
-    // 2. daily_credits에 크레딧 추가 (함수 호출)
-    const { data: creditResult, error: creditError } = await supabase.rpc(
-      'increase_credits_for_user',
-      { p_user_id: userId, p_amount: credits }
-    );
+    // 2. daily_credits에서 오늘 기록 조회
+    const { data: existingCredit } = await supabase.from('daily_credits')
+      .select('credits_earned')
+      .eq('user_id', userId)
+      .eq('date', date)
+      .maybeSingle();
+
+    const totalCreditsEarned = (existingCredit?.credits_earned || 0) + credits;
+
+    // 3. daily_credits에 크레딧 추가/업데이트
+    const { data: creditData, error: creditError } = await supabase.from('daily_credits')
+      .upsert({
+        user_id: userId,
+        date: date,
+        credits_earned: totalCreditsEarned,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,date' })
+      .select('credits_earned')
+      .single();
 
     if (creditError) {
       console.error('Error updating credits:', creditError);
-      return c.json({ error: 'Failed to update credits' }, 500);
+      return c.json({ error: `Failed to update credits: ${creditError.message}` }, 500);
     }
 
-    // 3. transcriptions_progress 업데이트 (마지막 필사 위치)
-    const { error: progressError } = await supabase.from('transcriptions_progress')
-      .upsert({
-        user_id: userId,
-        book,
-        chapter,
-        verse: verseNum,
-        progress_json: { lastUpdated: new Date().toISOString(), mode },
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id,book' });
+    // 4. transcriptions_progress 업데이트 (마지막 필사 위치)
+    // 먼저 기존 레코드 확인
+    const { data: existingProgress } = await supabase.from('transcriptions_progress')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('book', book)
+      .maybeSingle();
 
-    if (progressError) {
-      console.error('Error updating progress:', progressError);
+    if (existingProgress) {
+      // 업데이트
+      const { error: progressError } = await supabase.from('transcriptions_progress')
+        .update({
+          chapter,
+          verse: verseNum,
+          progress_json: { lastUpdated: new Date().toISOString(), mode },
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingProgress.id);
+
+      if (progressError) {
+        console.error('Error updating progress:', progressError);
+        return c.json({ error: `Failed to update progress: ${progressError.message}` }, 500);
+      }
+    } else {
+      // 신규 삽입
+      const { error: progressError } = await supabase.from('transcriptions_progress')
+        .insert({
+          user_id: userId,
+          book,
+          chapter,
+          verse: verseNum,
+          progress_json: { lastUpdated: new Date().toISOString(), mode },
+          updated_at: new Date().toISOString(),
+        });
+
+      if (progressError) {
+        console.error('Error inserting progress:', progressError);
+        return c.json({ error: `Failed to insert progress: ${progressError.message}` }, 500);
+      }
     }
-
-    // 4. KV 스토어에도 저장 (호환성을 위해)
-    const timestamp = Date.now();
-    const transcriptionId = `${timestamp}-${Math.random().toString(36).substr(2, 9)}`;
-    const transcriptionKey = `user:${authUserId}:transcription:${transcriptionId}`;
-    await kv.set(transcriptionKey, {
-      id: transcriptionId,
-      userId: authUserId,
-      mode,
-      verse,
-      credits,
-      book,
-      chapter,
-      verseNum,
-      date,
-      timestamp: new Date().toISOString(),
-    });
 
     return c.json({
       transcription: {
-        id: transcriptionId,
         credits,
         book,
         chapter,
         verseNum,
         date,
       },
-      dailyEarned: creditResult?.[0]?.credits_earned || credits,
+      dailyEarned: creditData?.credits_earned || credits,
     });
   } catch (error) {
     console.error('Error saving transcription:', error);
-    return c.json({ error: 'Failed to save transcription' }, 500);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return c.json({ error: `Failed to save transcription: ${errorMessage}` }, 500);
   }
 });
 
@@ -235,11 +258,16 @@ app.get("/make-server-3ed9c009/daily-stats", verifyAuth, async (c) => {
       return c.json({ date, stats: stats || { date, credits_earned: 0, credits_spent: 0 } });
     } else if (month) {
       // Get all days in month (YYYY-MM)
+      // Calculate next month for proper date range
+      const [year, monthNum] = month.split('-');
+      const nextMonth = new Date(parseInt(year), parseInt(monthNum), 1);
+      const nextMonthStr = nextMonth.toISOString().split('T')[0];
+
       const { data: monthStats, error } = await supabase.from('daily_credits')
         .select('*')
         .eq('user_id', userId)
         .gte('date', `${month}-01`)
-        .lt('date', `${month}-32`);
+        .lt('date', nextMonthStr);
 
       if (error) throw error;
 
@@ -269,23 +297,53 @@ app.get("/make-server-3ed9c009/daily-stats", verifyAuth, async (c) => {
 app.get("/make-server-3ed9c009/completed-verses", verifyAuth, async (c) => {
   try {
     const authUserId = c.get('userId');
-    const prefix = `user:${authUserId}:transcription:`;
+    console.log('Fetching completed verses for user:', authUserId);
 
-    const transcriptions = await kv.getByPrefix(prefix);
+    // 1. users 테이블에서 user_id 조회
+    const { data: userRecord, error: userError } = await supabase.from('users')
+      .select('id')
+      .eq('auth_user_id', authUserId)
+      .single();
+
+    if (userError) {
+      console.error('Error finding user:', userError);
+      return c.json({ completedVerses: {} });
+    }
+
+    if (!userRecord) {
+      console.log('User record not found for auth_user_id:', authUserId);
+      return c.json({ completedVerses: {} });
+    }
+
+    console.log('Found user with id:', userRecord.id);
+
+    // 2. transcriptions_progress 테이블에서 완료된 절 목록 조회
+    const { data: progressData, error } = await supabase.from('transcriptions_progress')
+      .select('book, chapter, verse')
+      .eq('user_id', userRecord.id);
+
+    if (error) {
+      console.error('Error fetching progress data:', error);
+      return c.json({ error: `Failed to fetch completed verses: ${error.message}` }, 500);
+    }
+
+    console.log('Found progress records:', progressData?.length || 0);
 
     // Create a map of completed verses: { "genesis-1-1": true, ... }
     const completedVerses: { [key: string]: boolean } = {};
-    transcriptions.forEach((t: any) => {
-      if (t.book && t.chapter && t.verseNum) {
-        const key = `${t.book}-${t.chapter}-${t.verseNum}`;
+    (progressData || []).forEach((p: any) => {
+      if (p.book && p.chapter && p.verse) {
+        const key = `${p.book}-${p.chapter}-${p.verse}`;
         completedVerses[key] = true;
       }
     });
 
+    console.log('Completed verses map:', Object.keys(completedVerses).length, 'items');
     return c.json({ completedVerses });
   } catch (error) {
     console.error('Error fetching completed verses:', error);
-    return c.json({ error: 'Failed to fetch completed verses' }, 500);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return c.json({ error: `Failed to fetch completed verses: ${errorMessage}` }, 500);
   }
 });
 

@@ -92,6 +92,7 @@ export async function saveTranscription(data: {
   book: string;
   chapter: number;
   verseNum: number;
+  date?: string; // 선택적 - 클라이언트 로컬 날짜
 }) {
   return apiCall('/transcription', {
     method: 'POST',
@@ -148,4 +149,56 @@ export async function disconnectAllProviders() {
   return apiCall('/user/providers/disconnect-all', {
     method: 'POST',
   });
+}
+
+// ===================================
+// User Initialization (after login)
+// ===================================
+
+/**
+ * Ensure user profile exists in the users table
+ * Called after successful authentication
+ * This creates or updates the user record with auth info
+ */
+export async function ensureUserProfileExists(session: any) {
+  if (!session || !session.user) {
+    console.error('No session provided to ensureUserProfileExists');
+    return;
+  }
+
+  try {
+    const authUser = session.user;
+    const provider = authUser.identities?.[0]?.provider || 'email';
+    const name = authUser.user_metadata?.name ||
+      authUser.user_metadata?.full_name ||
+      authUser.email?.split('@')[0] ||
+      'User';
+
+    // Upsert user profile into users table
+    const { data, error } = await supabase
+      .from('users')
+      .upsert(
+        {
+          auth_user_id: authUser.id,
+          email: authUser.email,
+          name: name,
+          provider: provider,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: 'auth_user_id', // Update if auth_user_id exists
+        }
+      )
+      .select();
+
+    if (error) {
+      console.error('Error ensuring user profile exists:', error);
+      return;
+    }
+
+    console.log('User profile ensured:', data);
+    return data?.[0];
+  } catch (err) {
+    console.error('Exception in ensureUserProfileExists:', err);
+  }
 }
