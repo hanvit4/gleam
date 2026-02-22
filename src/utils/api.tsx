@@ -202,3 +202,33 @@ export async function ensureUserProfileExists(session: any) {
     console.error('Exception in ensureUserProfileExists:', err);
   }
 }
+
+// ===================================
+// Service Email Management
+// ===================================
+
+/**
+ * Check if service_email already exists
+ * Used during signup to detect duplicate emails
+ */
+export async function checkServiceEmailDuplicate(serviceEmail: string) {
+  try {
+    const { count, error } = await supabase
+      .from('users')
+      .select('id', { count: 'exact' })
+      .eq('service_email', serviceEmail);
+
+    if (error) {
+      console.error('Error checking service_email:', error);
+      throw error;
+    }
+
+    return {
+      exists: count !== null && count > 0,
+      count: count || 0,
+    };
+  } catch (err) {
+    console.error('Exception in checkServiceEmailDuplicate:', err);
+    throw err;
+  }
+}

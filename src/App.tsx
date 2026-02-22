@@ -7,15 +7,26 @@ import EasyTopics from './components/EasyTopics';
 import EasyTyping from './components/EasyTyping';
 import ExpertTyping from './components/ExpertTyping';
 import LoginScreen from './components/LoginScreen';
+import SetServiceEmailScreen from './components/SetServiceEmailScreen';
 import AdBanner from './components/AdBanner';
 import { supabase } from './utils/supabase/client';
 import * as api from './utils/api';
+import { toast } from 'sonner';
+
+const GLOBAL_LINK_ERROR_KEY = 'social_link_error_notice';
+
+interface GlobalLinkErrorNotice {
+  message: string;
+  details?: string;
+  createdAt: number;
+}
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [needsServiceEmail, setNeedsServiceEmail] = useState(false);
   const [credits, setCredits] = useState(0);
   const [todayEarned, setTodayEarned] = useState(0);
   const [nickname, setNickname] = useState('사용자');
@@ -24,13 +35,10 @@ export default function App() {
   const [consecutiveDays, setConsecutiveDays] = useState(0);
   const [canCheckIn, setCanCheckIn] = useState(true);
   const DAILY_LIMIT = 300;
-  const [activeTab, setActiveTab] = useState('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'bible' | 'profile'>('home');
   const [currentScreen, setCurrentScreen] = useState<'home' | 'modeSelect' | 'easyTopics' | 'easyTyping' | 'expertTyping'>('home');
   const [selectedTopic, setSelectedTopic] = useState<string>('');
-
-  // Mock data for calendar - 날짜별 획득량 (0-300)
   const [earnedByDate, setEarnedByDate] = useState<{ [key: string]: number }>({});
-
   const [currentMonth, setCurrentMonth] = useState(() => {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
@@ -40,8 +48,6 @@ export default function App() {
   const loadUserData = async () => {
     try {
       console.log('Loading user data...');
-
-      // Load profile
       const profileRes = await api.getUserProfile();
       console.log('Profile loaded:', profileRes.profile);
       setCredits(profileRes.profile.creditsEarned || 0);
@@ -59,8 +65,6 @@ export default function App() {
       const monthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
       const monthRes = await api.getMonthlyStats(monthStr);
       console.log('Month stats loaded:', monthRes.stats);
-
-      // Convert month stats to earnedByDate format
       const monthData: { [key: string]: number } = {};
       if (monthRes.stats && Array.isArray(monthRes.stats)) {
         monthRes.stats.forEach((stat: any) => {
@@ -68,7 +72,6 @@ export default function App() {
         });
       }
       setEarnedByDate(monthData);
-
     } catch (error) {
       console.error('Error loading user data:', error);
     }
@@ -86,22 +89,38 @@ export default function App() {
 
   // Check session on mount and listen for auth changes
   useEffect(() => {
-    // Check initial session
+    const rawNotice = localStorage.getItem(GLOBAL_LINK_ERROR_KEY);
+    if (rawNotice) {
+      try {
+        const notice = JSON.parse(rawNotice) as GlobalLinkErrorNotice;
+        if (notice?.message) {
+          toast.error(notice.message);
+        }
+      } catch (e) {
+        console.warn('연동 실패 알림 파싱 실패:', e);
+      } finally {
+        localStorage.removeItem(GLOBAL_LINK_ERROR_KEY);
+      }
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setIsLoggedIn(!!session);
       setUser(session?.user ?? null);
-      setIsLoading(false);
 
       if (session) {
         console.log('로그인된 사용자:', session.user);
-        // Ensure user profile exists in users table
-        api.ensureUserProfileExists(session).then(() => {
-          loadUserData();
+        api.ensureUserProfileExists(session).then((profile) => {
+          if (!profile?.service_email) {
+            console.log('⚠️ service_email 미설정, 입력 화면 표시');
+            setNeedsServiceEmail(true);
+          } else {
+            loadUserData();
+          }
         });
       }
+      setIsLoading(false);
     });
 
-    // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -110,9 +129,13 @@ export default function App() {
 
       if (session) {
         console.log('인증 상태 변경:', session.user);
-        // Ensure user profile exists in users table
-        api.ensureUserProfileExists(session).then(() => {
-          loadUserData();
+        api.ensureUserProfileExists(session).then((profile) => {
+          if (!profile?.service_email) {
+            console.log('⚠️ service_email 미설정, 입력 화면 표시');
+            setNeedsServiceEmail(true);
+          } else {
+            loadUserData();
+          }
         });
       }
     });
@@ -147,6 +170,23 @@ export default function App() {
     );
   }
 
+  // Show service email setup screen if needed
+  if (isLoggedIn && needsServiceEmail) {
+    return (
+      <SetServiceEmailScreen
+        onEmailSet={() => {
+          setNeedsServiceEmail(false);
+          loadUserData();
+        }}
+        onCancel={() => {
+          setIsLoggedIn(false);
+          setUser(null);
+          setNeedsServiceEmail(false);
+        }}
+      />
+    );
+  }
+
   // Show login screen if not logged in
   if (!isLoggedIn) {
     return <LoginScreen onLogin={() => setIsLoggedIn(true)} />;
@@ -165,7 +205,6 @@ export default function App() {
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
     const startingDayOfWeek = firstDay.getDay();
-
     return { daysInMonth, startingDayOfWeek };
   };
 
@@ -301,9 +340,7 @@ export default function App() {
             </div>
             <div className="flex items-center justify-between mt-3">
               <span className="text-[#49454f] text-sm">오늘의 획득량</span>
-              <span className="text-[#1d1b20] font-semibold text-base">
-                {todayEarned} / {DAILY_LIMIT} C
-              </span>
+              <span className="text-[#1d1b20] font-semibold text-base">{`${todayEarned}C / ${DAILY_LIMIT}C`}</span>
             </div>
             {/* Progress Bar */}
             <div className="mt-3 h-1 bg-[#d0bcff] rounded-full overflow-hidden">
@@ -313,161 +350,161 @@ export default function App() {
               />
             </div>
           </div>
+        </div>
 
-          {/* Typing Section */}
-          <div className="bg-white rounded-[16px] p-4 shadow-sm mt-4">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-[#e8def8] rounded-[12px] flex items-center justify-center">
-                <BookOpen className="w-5 h-5 text-[#6750a4]" />
-              </div>
-              <div>
-                <h2 className="text-[#1d1b20] font-medium text-base">성경 필사</h2>
-                <p className="text-[#49454f] text-sm">1절당 10 크레딧 획득</p>
-              </div>
+        {/* Typing Section */}
+        <div className="bg-white rounded-[16px] p-4 shadow-sm mt-4">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-[#e8def8] rounded-[12px] flex items-center justify-center">
+              <BookOpen className="w-5 h-5 text-[#6750a4]" />
             </div>
-
-            {/* Typing Button */}
-            <button
-              onClick={handleTypingComplete}
-              disabled={todayEarned >= DAILY_LIMIT}
-              className={`w-full py-3 rounded-full font-medium text-sm transition-all active:scale-98 ${todayEarned >= DAILY_LIMIT
-                ? 'bg-[#e7e0ec] text-[#79747e] cursor-not-allowed'
-                : 'bg-[#6750a4] text-white shadow-md hover:shadow-lg'
-                }`}
-            >
-              {todayEarned >= DAILY_LIMIT ? (
-                <span className="flex items-center justify-center gap-2">
-                  <CheckCircle2 className="w-5 h-5" />
-                  오늘의 한도 달성!
-                </span>
-              ) : (
-                <span>필사 시작하기</span>
-              )}
-            </button>
-
-            {/* Info Text */}
-            <p className="mt-3 text-center text-[#49454f] text-xs">
-              하루 최대 {DAILY_LIMIT / 10}절 (30절) 필사 가능
-            </p>
+            <div>
+              <h2 className="text-[#1d1b20] font-medium text-base">성경 필사</h2>
+              <p className="text-[#49454f] text-sm">1절당 10 크레딧 획득</p>
+            </div>
           </div>
 
-          {/* Calendar */}
-          <div className="mt-4 bg-white rounded-[16px] p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <button
-                onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
-                className="p-2 hover:bg-[#f5f5f5] rounded-full transition-colors active:bg-[#e8e8e8]"
-              >
-                <ChevronLeft className="w-5 h-5 text-[#49454f]" />
-              </button>
-              <h2 className="text-[#1d1b20] font-medium text-base">
-                {currentMonth.getFullYear()}년 {currentMonth.getMonth() + 1}월
-              </h2>
-              <button
-                onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
-                className="p-2 hover:bg-[#f5f5f5] rounded-full transition-colors active:bg-[#e8e8e8]"
-              >
-                <ChevronRight className="w-5 h-5 text-[#49454f]" />
-              </button>
-            </div>
+          {/* Typing Button */}
+          <button
+            onClick={handleTypingComplete}
+            disabled={todayEarned >= DAILY_LIMIT}
+            className={`w-full py-3 rounded-full font-medium text-sm transition-all active:scale-98 ${todayEarned >= DAILY_LIMIT
+              ? 'bg-[#e7e0ec] text-[#79747e] cursor-not-allowed'
+              : 'bg-[#6750a4] text-white shadow-md hover:shadow-lg'
+              }`}
+          >
+            {todayEarned >= DAILY_LIMIT ? (
+              <span className="flex items-center justify-center gap-2">
+                <CheckCircle2 className="w-5 h-5" />
+                오늘의 한도 달성!
+              </span>
+            ) : (
+              <span>필사 시작하기</span>
+            )}
+          </button>
 
-            {/* Weekday Headers */}
-            <div className="grid grid-cols-7 gap-1 mb-2">
-              {['일', '월', '화', '수', '목', '금', '토'].map((day, idx) => (
-                <div key={day} className={`text-center text-xs font-medium ${idx === 0 ? 'text-[#ba1a1a]' : 'text-[#49454f]'}`}>
-                  {day}
-                </div>
-              ))}
-            </div>
+          {/* Info Text */}
+          <p className="mt-3 text-center text-[#49454f] text-xs">
+            하루 최대 {DAILY_LIMIT / 10}절 (30절) 필사 가능
+          </p>
+        </div>
 
-            {/* Calendar Days */}
-            <div className="grid grid-cols-7 gap-1">
-              {/* Empty cells for days before month starts */}
-              {Array.from({ length: startingDayOfWeek }).map((_, index) => (
-                <div key={`empty-${index}`} />
-              ))}
+        {/* Calendar */}
+        <div className="mt-4 bg-white rounded-[16px] p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <button
+              onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
+              className="p-2 hover:bg-[#f5f5f5] rounded-full transition-colors active:bg-[#e8e8e8]"
+            >
+              <ChevronLeft className="w-5 h-5 text-[#49454f]" />
+            </button>
+            <h2 className="text-[#1d1b20] font-medium text-base">
+              {currentMonth.getFullYear()}년 {currentMonth.getMonth() + 1}월
+            </h2>
+            <button
+              onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
+              className="p-2 hover:bg-[#f5f5f5] rounded-full transition-colors active:bg-[#e8e8e8]"
+            >
+              <ChevronRight className="w-5 h-5 text-[#49454f]" />
+            </button>
+          </div>
 
-              {/* Actual days */}
-              {Array.from({ length: daysInMonth }).map((_, index) => {
-                const day = index + 1;
-                const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                const earned = earnedByDate[dateStr] || 0;
-                const percentage = getPercentage(earned);
-                const today = new Date();
-                const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-                const isToday = dateStr === todayStr;
+          {/* Weekday Headers */}
+          <div className="grid grid-cols-7 gap-1 mb-2">
+            {['일', '월', '화', '수', '목', '금', '토'].map((day, idx) => (
+              <div key={day} className={`text-center text-xs font-medium ${idx === 0 ? 'text-[#ba1a1a]' : 'text-[#49454f]'}`}>
+                {day}
+              </div>
+            ))}
+          </div>
 
-                return (
-                  <div
-                    key={day}
-                    className="aspect-square flex items-center justify-center relative"
-                  >
-                    {/* Today Highlight Background - smaller and behind progress */}
-                    {isToday && (
-                      <div className="absolute inset-0 bg-[#e8def8] rounded-full scale-75 opacity-50" />
-                    )}
-                    {/* Circular Progress */}
-                    <svg className="absolute inset-0 w-full h-full" viewBox="0 0 36 36">
+          {/* Calendar Days */}
+          <div className="grid grid-cols-7 gap-1">
+            {/* Empty cells for days before month starts */}
+            {Array.from({ length: startingDayOfWeek }).map((_, index) => (
+              <div key={`empty-${index}`} />
+            ))}
+
+            {/* Actual days */}
+            {Array.from({ length: daysInMonth }).map((_, index) => {
+              const day = index + 1;
+              const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+              const earned = earnedByDate[dateStr] || 0;
+              const percentage = getPercentage(earned);
+              const today = new Date();
+              const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+              const isToday = dateStr === todayStr;
+
+              return (
+                <div
+                  key={day}
+                  className="aspect-square flex items-center justify-center relative"
+                >
+                  {/* Today Highlight Background - smaller and behind progress */}
+                  {isToday && (
+                    <div className="absolute inset-0 bg-[#e8def8] rounded-full scale-75 opacity-50" />
+                  )}
+                  {/* Circular Progress */}
+                  <svg className="absolute inset-0 w-full h-full" viewBox="0 0 36 36">
+                    <circle
+                      cx="18"
+                      cy="18"
+                      r="16"
+                      fill="none"
+                      stroke="#e8e8e8"
+                      strokeWidth="2.5"
+                    />
+                    {earned > 0 && (
                       <circle
                         cx="18"
                         cy="18"
                         r="16"
                         fill="none"
-                        stroke="#e8e8e8"
+                        stroke={percentage === 100 ? '#4caf50' : '#6750a4'}
                         strokeWidth="2.5"
+                        strokeDasharray={`${percentage} ${100 - percentage}`}
+                        strokeLinecap="round"
+                        transform="rotate(-90 18 18)"
                       />
-                      {earned > 0 && (
-                        <circle
-                          cx="18"
-                          cy="18"
-                          r="16"
-                          fill="none"
-                          stroke={percentage === 100 ? '#4caf50' : '#6750a4'}
-                          strokeWidth="2.5"
-                          strokeDasharray={`${percentage} ${100 - percentage}`}
-                          strokeLinecap="round"
-                          transform="rotate(-90 18 18)"
-                        />
-                      )}
-                    </svg>
-                    {/* Day Number */}
-                    <span
-                      className={`relative z-10 text-xs font-medium ${isToday
-                        ? 'text-[#6750a4] font-bold'
-                        : earned > 0
-                          ? 'text-[#1d1b20]'
-                          : 'text-[#79747e]'
-                        }`}
-                    >
-                      {day}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Legend */}
-            <div className="mt-3 pt-3 border-t border-[#e7e0ec] flex items-center justify-center gap-4 text-xs text-[#49454f]">
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-[#6750a4]" />
-                <span>진행 중</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-[#4caf50]" />
-                <span>100% 달성</span>
-              </div>
-            </div>
+                    )}
+                  </svg>
+                  {/* Day Number */}
+                  <span
+                    className={`relative z-10 text-xs font-medium ${isToday
+                      ? 'text-[#6750a4] font-bold'
+                      : earned > 0
+                        ? 'text-[#1d1b20]'
+                        : 'text-[#79747e]'
+                      }`}
+                  >
+                    {day}
+                  </span>
+                </div>
+              );
+            })}
           </div>
 
-          {/* AdSense Banner */}
-          <div className="mt-4">
-            <AdBanner
-              slot="your-ad-slot-id-here"
-              format="auto"
-              responsive={true}
-              className="bg-[#f5f5f5] rounded-[16px] overflow-hidden"
-            />
+          {/* Legend */}
+          <div className="mt-3 pt-3 border-t border-[#e7e0ec] flex items-center justify-center gap-4 text-xs text-[#49454f]">
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded-full bg-[#6750a4]" />
+              <span>진행 중</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded-full bg-[#4caf50]" />
+              <span>100% 달성</span>
+            </div>
           </div>
+        </div>
+
+        {/* AdSense Banner */}
+        <div className="mt-4">
+          <AdBanner
+            slot="your-ad-slot-id-here"
+            format="auto"
+            responsive={true}
+            className="bg-[#f5f5f5] rounded-[16px] overflow-hidden"
+          />
         </div>
       </>
     );

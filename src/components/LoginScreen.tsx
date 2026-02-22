@@ -2,6 +2,14 @@ import { MessageCircle } from 'lucide-react';
 import { supabase } from '../utils/supabase/client';
 import { useState } from 'react';
 
+// 로컬/배포 환경 자동 감지
+const getRedirectUrl = () => {
+  if (import.meta.env.DEV) {
+    return 'http://localhost:3000';
+  }
+  return 'https://creditcheckdashboard.vercel.app';
+};
+
 interface LoginScreenProps {
   onLogin: () => void;
 }
@@ -12,12 +20,15 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
   const handleKakaoLogin = async () => {
     try {
       setIsLoading('kakao');
-      console.log('카카오 로그인 시도');
-      
+      const redirectUrl = getRedirectUrl();
+      console.log('🔵 카카오 로그인 시도');
+      console.log('📍 import.meta.env.DEV:', import.meta.env.DEV);
+      console.log('📍 redirectTo:', redirectUrl);
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'kakao',
         options: {
-          redirectTo: window.location.origin,
+          redirectTo: redirectUrl,
           // 필요한 최소한의 권한만 요청 (닉네임, 이메일만)
           scopes: 'profile_nickname account_email',
         },
@@ -42,11 +53,11 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
     try {
       setIsLoading('google');
       console.log('구글 로그인 시도');
-      
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin,
+          redirectTo: getRedirectUrl(),
         },
       });
 
@@ -69,11 +80,11 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
     try {
       setIsLoading('apple');
       console.log('애플 로그인 시도');
-      
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'apple',
         options: {
-          redirectTo: window.location.origin,
+          redirectTo: getRedirectUrl(),
         },
       });
 
