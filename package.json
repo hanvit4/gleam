@@ -1,5 +1,5 @@
 {
-    "name": "Credit Check Dashboard",
+    "name": "gleam",
     "version": "0.1.0",
     "private": true,
     "dependencies": {

@@ -110,17 +110,15 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
         {/* Logo and Welcome Section */}
         <div className="flex-1 flex flex-col items-center justify-center px-6">
           {/* App Icon */}
-          <div className="w-24 h-24 bg-gradient-to-br from-[#6750a4] to-[#7f67be] rounded-[24px] shadow-lg flex items-center justify-center mb-6">
-            <svg className="w-14 h-14 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-            </svg>
+          <div className="w-24 h-24 rounded-[24px] shadow-lg overflow-hidden mb-6">
+            <img src="/logo.png" alt="Gleam Logo" className="w-full h-full object-cover" />
           </div>
 
           {/* App Name */}
-          <h1 className="text-[#1d1b20] text-3xl font-bold mb-2">성경 필사</h1>
+          <h1 className="text-[#1d1b20] text-3xl font-bold mb-2">글림</h1>
           <p className="text-[#49454f] text-base text-center mb-8">
-            성경 구절을 필사하며<br />
-            크레딧을 획득하세요
+            말씀을 필사하며<br />
+            당신의 믿음을 빛내세요
           </p>
 
           {/* Features */}
@@ -132,8 +130,8 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                 </svg>
               </div>
               <div>
-                <p className="text-[#1d1b20] font-medium text-sm">이지 모드</p>
-                <p className="text-[#49454f] text-xs">주제별 구절 필사, 일일 제한 없음</p>
+                <p className="text-[#1d1b20] font-medium text-sm">필사 기능</p>
+                <p className="text-[#49454f] text-xs">성경 말씀을 필사하고 크레딧 획득</p>
               </div>
             </div>
 
@@ -144,8 +142,8 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                 </svg>
               </div>
               <div>
-                <p className="text-[#1d1b20] font-medium text-sm">전문가 모드</p>
-                <p className="text-[#49454f] text-xs">창세기부터 순서대로, 하루 최대 300 크레딧</p>
+                <p className="text-[#1d1b20] font-medium text-sm">스마트 출석 체크</p>
+                <p className="text-[#49454f] text-xs">GPS 기반 교회 자동 출석 인증</p>
               </div>
             </div>
 
@@ -156,8 +154,8 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                 </svg>
               </div>
               <div>
-                <p className="text-[#1d1b20] font-medium text-sm">크레딧 리워드</p>
-                <p className="text-[#49454f] text-xs">1절당 10 크레딧 획득</p>
+                <p className="text-[#1d1b20] font-medium text-sm">교회 생활</p>
+                <p className="text-[#49454f] text-xs">소속 교회와 함께하는 신앙 생활</p>
               </div>
             </div>
           </div>

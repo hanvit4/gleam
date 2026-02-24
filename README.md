@@ -1,7 +1,7 @@
 
-  # Credit Check Dashboard
+  # Gleam
 
-  This is a code bundle for Credit Check Dashboard. The original project is available at https://www.figma.com/design/8WIf8DYMAe2mw3xn5oB9z4/Credit-Check-Dashboard.
+  This is a code bundle for Gleam. The original project is available at https://www.figma.com/design/8WIf8DYMAe2mw3xn5oB9z4/Credit-Check-Dashboard.
 
   ## Running the code
 
