@@ -1,28 +1,42 @@
+export type BibleTranslation = 'krv' | 'kor' | 'nkrv';
+
 // Bible APIs (dummy data for now)
-export async function getBibleChapter(book: string, chapter: number) {
-  return apiCall(`/bible/book/${encodeURIComponent(book)}/chapter/${chapter}`);
+export async function getBibleChapter(book: string, chapter: number, translation: BibleTranslation = 'nkrv') {
+  return apiCall(`/bible/book/${encodeURIComponent(book)}/chapter/${chapter}?translation=${translation}`, {}, false);
 }
 
-export async function getBibleVerse(book: string, chapter: number, verse: number) {
-  return apiCall(`/bible/book/${encodeURIComponent(book)}/chapter/${chapter}/verse/${verse}`);
+export async function getBibleVerse(book: string, chapter: number, verse: number, translation: BibleTranslation = 'nkrv') {
+  return apiCall(`/bible/book/${encodeURIComponent(book)}/chapter/${chapter}/verse/${verse}?translation=${translation}`, {}, false);
 }
 
-export async function searchBible(query: string) {
-  return apiCall(`/bible/search?q=${encodeURIComponent(query)}`);
+export async function searchBible(query: string, translation: BibleTranslation = 'nkrv') {
+  return apiCall(`/bible/search?q=${encodeURIComponent(query)}&translation=${translation}`, {}, false);
 }
 import { supabase } from './supabase/client';
-import { projectId } from './supabase/info';
+import { API_CONFIG } from '../config/api';
 
-const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-3ed9c009`;
+const API_BASE_URL = API_CONFIG.baseUrl;
 
 // Get access token (with refresh if needed)
 async function getAccessToken(): Promise<string | null> {
   try {
-    const { data: { session }, error } = await supabase.auth.getSession();
+    const { data, error } = await supabase.auth.getSession();
 
     if (error) {
       console.error('Session error:', error);
-      return null;
+    }
+
+    let session = data?.session ?? null;
+    const now = Math.floor(Date.now() / 1000);
+    const needsRefresh = !session || (session.expires_at && session.expires_at - now < 60);
+
+    if (needsRefresh) {
+      const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError) {
+        console.error('Session refresh error:', refreshError);
+      } else {
+        session = refreshed.session ?? null;
+      }
     }
 
     if (!session) {
@@ -40,23 +54,29 @@ async function getAccessToken(): Promise<string | null> {
 
 
 // Generic API call wrapper
-async function apiCall(endpoint: string, options: RequestInit = {}) {
-  const token = await getAccessToken();
+async function apiCall(endpoint: string, options: RequestInit = {}, requireAuth: boolean = true) {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
 
-  if (!token) {
-    console.error('No token available for endpoint:', endpoint);
-    throw new Error('No authentication token available');
+  if (requireAuth) {
+    const token = await getAccessToken();
+
+    if (!token) {
+      console.error('No token available for endpoint:', endpoint);
+      throw new Error('No authentication token available');
+    }
+
+    console.log('API Call:', endpoint, 'with token:', token.substring(0, 20) + '...');
+    headers['Authorization'] = `Bearer ${token}`;
+  } else {
+    console.log('API Call (no auth):', endpoint);
   }
-
-  console.log('API Call:', endpoint, 'with token:', token.substring(0, 20) + '...');
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      ...options.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {

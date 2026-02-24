@@ -15,6 +15,7 @@ interface EasyTypingProps {
   topicId: string;
   onBack: () => void;
   onComplete: (earnedCredits: number) => void;
+  translation: api.BibleTranslation;
 }
 
 // Mock verse data
@@ -49,8 +50,9 @@ const versesByTopic: { [key: string]: Verse[] } = {
   ],
 };
 
-export default function EasyTyping({ topicId, onBack, onComplete }: EasyTypingProps) {
-  const verses = versesByTopic[topicId] || versesByTopic.love;
+export default function EasyTyping({ topicId, onBack, onComplete, translation }: EasyTypingProps) {
+  const [verses, setVerses] = useState<Verse[]>(versesByTopic[topicId] || versesByTopic.love);
+  const [isLoadingVerses, setIsLoadingVerses] = useState(true);
   const [currentVerseIndex, setCurrentVerseIndex] = useState(0);
   const [userInput, setUserInput] = useState('');
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
@@ -59,6 +61,71 @@ export default function EasyTyping({ topicId, onBack, onComplete }: EasyTypingPr
   const [isSaving, setIsSaving] = useState(false);
 
   const currentVerse = verses[currentVerseIndex];
+
+  const getVerseRangeFromReference = (verse: Verse) => {
+    const match = verse.reference.match(/(\d+):(\d+)(?:-(\d+))?/);
+    const start = match ? Number(match[2]) : (verse.verseNum || 1);
+    const end = match && match[3] ? Number(match[3]) : start;
+    return { start, end };
+  };
+
+  useEffect(() => {
+    let isActive = true;
+    const loadVerses = async () => {
+      setIsLoadingVerses(true);
+      const sourceVerses = versesByTopic[topicId] || versesByTopic.love;
+
+      try {
+        const loaded = await Promise.all(sourceVerses.map(async (verse) => {
+          if (!verse.book || !verse.chapter) {
+            return verse;
+          }
+
+          const { start, end } = getVerseRangeFromReference(verse);
+          if (start !== end) {
+            const parts = await Promise.all(
+              Array.from({ length: end - start + 1 }, (_, idx) =>
+                api.getBibleVerse(verse.book!, verse.chapter!, start + idx, translation)
+                  .then((res) => res.text as string)
+              )
+            );
+
+            return {
+              ...verse,
+              verseNum: start,
+              text: parts.join(' '),
+            };
+          }
+
+          const res = await api.getBibleVerse(verse.book, verse.chapter, start, translation);
+          return {
+            ...verse,
+            verseNum: start,
+            text: res.text || verse.text,
+          };
+        }));
+
+        if (isActive) {
+          setVerses(loaded);
+          setCurrentVerseIndex(0);
+        }
+      } catch (error) {
+        console.error('Failed to load easy mode verses:', error);
+        if (isActive) {
+          setVerses(sourceVerses);
+        }
+      } finally {
+        if (isActive) {
+          setIsLoadingVerses(false);
+        }
+      }
+    };
+
+    loadVerses();
+    return () => {
+      isActive = false;
+    };
+  }, [topicId, translation]);
 
   // Save transcription to DB
   const saveTranscriptionToDB = async (verse: Verse, credits: number) => {
@@ -147,6 +214,17 @@ export default function EasyTyping({ topicId, onBack, onComplete }: EasyTypingPr
     );
   };
 
+  if (!currentVerse) {
+    return (
+      <div className="px-4 pt-12 pb-4">
+        <div className="bg-white rounded-[16px] p-6 shadow-sm mb-4 min-h-[180px] flex flex-col items-center justify-center">
+          <div className="w-8 h-8 border-4 border-[#6750a4] border-t-transparent rounded-full animate-spin mb-3" />
+          <p className="text-[#49454f] text-sm">구절을 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="px-4 pt-12 pb-4 relative">
       {/* Header */}
@@ -184,9 +262,16 @@ export default function EasyTyping({ topicId, onBack, onComplete }: EasyTypingPr
 
       {/* Verse Text Display */}
       <div className="bg-white rounded-[16px] p-6 shadow-sm mb-4 min-h-[120px]">
-        <p className="text-lg leading-relaxed">
-          {getHighlightedText()}
-        </p>
+        {isLoadingVerses ? (
+          <div className="flex flex-col items-center justify-center min-h-[120px]">
+            <div className="w-8 h-8 border-4 border-[#6750a4] border-t-transparent rounded-full animate-spin mb-3" />
+            <p className="text-[#49454f] text-sm">구절 데이터를 불러오는 중...</p>
+          </div>
+        ) : (
+          <p className="text-lg leading-relaxed">
+            {getHighlightedText()}
+          </p>
+        )}
       </div>
 
       {/* Input Area */}

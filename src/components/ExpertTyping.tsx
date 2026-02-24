@@ -15,10 +15,11 @@ interface ExpertTypingProps {
   onComplete: (earnedCredits: number) => void;
   todayEarned: number;
   dailyLimit: number;
+  translation: api.BibleTranslation;
 }
 
-// Mock Bible data - 창세기 1장
-const bibleVerses: Verse[] = [
+// Fallback Bible data - 창세기 1장
+const fallbackBibleVerses: Verse[] = [
   { book: '창세기', chapter: 1, verse: 1, text: '태초에 하나님이 천지를 창조하시니라' },
   { book: '창세기', chapter: 1, verse: 2, text: '땅이 혼돈하고 공허하며 흑암이 깊음 위에 있고 하나님의 영은 수면 위에 운행하시니라' },
   { book: '창세기', chapter: 1, verse: 3, text: '하나님이 이르시되 빛이 있으라 하시니 빛이 있었고' },
@@ -31,7 +32,9 @@ const bibleVerses: Verse[] = [
   { book: '창세기', chapter: 1, verse: 10, text: '하나님이 뭍을 땅이라 부르시고 모인 물을 바다라 부르시니 하나님이 보시기에 좋았더라' },
 ];
 
-export default function ExpertTyping({ onBack, onComplete, todayEarned, dailyLimit }: ExpertTypingProps) {
+export default function ExpertTyping({ onBack, onComplete, todayEarned, dailyLimit, translation }: ExpertTypingProps) {
+  const [bibleVerses, setBibleVerses] = useState<Verse[]>(fallbackBibleVerses);
+  const [isLoadingVerses, setIsLoadingVerses] = useState(true);
   const [currentVerseIndex, setCurrentVerseIndex] = useState(0);
   const [userInput, setUserInput] = useState('');
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
@@ -127,8 +130,50 @@ export default function ExpertTyping({ onBack, onComplete, todayEarned, dailyLim
     }
   }, [userInput, currentVerse.text, isProcessing]);
 
+  useEffect(() => {
+    let isActive = true;
+
+    const loadChapterVerses = async () => {
+      setIsLoadingVerses(true);
+      try {
+        const res = await api.getBibleChapter('창세기', 1, translation);
+        const verseObj = res?.verses || {};
+        const verseNums = Object.keys(verseObj).map(Number).sort((a, b) => a - b);
+        const loaded = verseNums.map((num) => ({
+          book: '창세기',
+          chapter: 1,
+          verse: num,
+          text: verseObj[num] || '',
+        }));
+
+        if (isActive && loaded.length > 0) {
+          setBibleVerses(loaded);
+          setCurrentVerseIndex(0);
+        }
+      } catch (error) {
+        console.error('Failed to load expert mode verses:', error);
+        if (isActive) {
+          setBibleVerses(fallbackBibleVerses);
+        }
+      } finally {
+        if (isActive) {
+          setIsLoadingVerses(false);
+        }
+      }
+    };
+
+    loadChapterVerses();
+    return () => {
+      isActive = false;
+    };
+  }, [translation]);
+
   // Load user's progress on mount
   useEffect(() => {
+    if (isLoadingVerses || bibleVerses.length === 0) {
+      return;
+    }
+
     const loadProgress = async () => {
       try {
         console.log('Loading expert mode progress...');
@@ -182,7 +227,7 @@ export default function ExpertTyping({ onBack, onComplete, todayEarned, dailyLim
     };
 
     loadProgress();
-  }, []);
+  }, [bibleVerses, isLoadingVerses]);
 
   const getHighlightedText = () => {
     const targetText = currentVerse.text;
@@ -247,10 +292,10 @@ export default function ExpertTyping({ onBack, onComplete, todayEarned, dailyLim
         )}
       </div>
 
-      {isLoadingProgress ? (
+      {isLoadingProgress || isLoadingVerses ? (
         <div className="bg-white rounded-[16px] p-6 shadow-sm mb-4 min-h-[180px] flex flex-col items-center justify-center">
           <div className="w-8 h-8 border-4 border-[#6750a4] border-t-transparent rounded-full animate-spin mb-3" />
-          <p className="text-[#49454f] text-sm">이어쓰기 정보를 불러오는 중...</p>
+          <p className="text-[#49454f] text-sm">구절 데이터를 불러오는 중...</p>
         </div>
       ) : (
         <>

@@ -1,23 +1,56 @@
 import { ArrowLeft, Zap, GraduationCap } from 'lucide-react';
+import * as api from '../utils/api';
 
 interface ModeSelectProps {
   onBack: () => void;
   onSelectEasy: () => void;
   onSelectExpert: () => void;
+  translation: api.BibleTranslation;
+  onChangeTranslation: (translation: api.BibleTranslation) => void;
 }
 
-export default function ModeSelect({ onBack, onSelectEasy, onSelectExpert }: ModeSelectProps) {
+export default function ModeSelect({ onBack, onSelectEasy, onSelectExpert, translation, onChangeTranslation }: ModeSelectProps) {
+  const translationLabels: Record<api.BibleTranslation, string> = {
+    nkrv: '개역개정',
+    krv: '개역한글',
+    kor: '새번역',
+  };
+
+  const translationOptions: { value: api.BibleTranslation; label: string }[] = [
+    { value: 'nkrv', label: '개역개정' },
+    { value: 'krv', label: '개역한글' },
+    { value: 'kor', label: '새번역' },
+  ];
   return (
     <div className="px-4 pt-12 pb-4">
       {/* Header */}
-      <div className="flex items-center mb-6">
-        <button
-          onClick={onBack}
-          className="p-2 -ml-2 hover:bg-[#f5f5f5] rounded-full transition-colors active:bg-[#e8e8e8]"
-        >
-          <ArrowLeft className="w-6 h-6 text-[#1d1b20]" />
-        </button>
-        <h1 className="text-[#1d1b20] text-2xl ml-2">필사 모드 선택</h1>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center">
+          <button
+            onClick={onBack}
+            className="p-2 -ml-2 hover:bg-[#f5f5f5] rounded-full transition-colors active:bg-[#e8e8e8]"
+          >
+            <ArrowLeft className="w-6 h-6 text-[#1d1b20]" />
+          </button>
+          <h1 className="text-[#1d1b20] text-2xl ml-2">필사 모드 선택</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-[#49454f] whitespace-nowrap" htmlFor="mode-translation">
+            번역본
+          </label>
+          <select
+            id="mode-translation"
+            className="rounded-full border border-[#e7e0ec] bg-white px-3 py-2 text-sm text-[#1d1b20] shadow-sm"
+            value={translation}
+            onChange={(event) => onChangeTranslation(event.target.value as api.BibleTranslation)}
+          >
+            {translationOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Easy Mode Card */}

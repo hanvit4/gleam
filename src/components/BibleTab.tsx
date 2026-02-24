@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Book, ChevronRight, CheckCircle2 } from 'lucide-react';
 import ChapterSelect from './ChapterSelect';
 import BibleReader from './BibleReader';
+import { BibleTranslation } from '../utils/api';
 
 interface BibleBook {
   id: string;
@@ -39,16 +40,33 @@ const bibleBooks: BibleBook[] = [
   { id: 'revelation', name: '요한계시록', chapters: 22, testament: 'new' },
 ];
 
-export default function BibleTab() {
+interface BibleTabProps {
+  translation: BibleTranslation;
+  onChangeTranslation: (translation: BibleTranslation) => void;
+}
+
+export default function BibleTab({ translation, onChangeTranslation }: BibleTabProps) {
   const [activeTestament, setActiveTestament] = useState<'old' | 'new'>('old');
   const [view, setView] = useState<'list' | 'chapters' | 'reader'>('list');
   const [selectedBook, setSelectedBook] = useState<BibleBook | null>(null);
   const [selectedChapter, setSelectedChapter] = useState<number>(1);
-  
+
   // Mock progress - 전문가 모드에서 창세기 1장까지 완료했다고 가정
   const completedChapters = new Set(['genesis-1']);
 
   const filteredBooks = bibleBooks.filter(book => book.testament === activeTestament);
+
+  const translationLabels: Record<BibleTranslation, string> = {
+    nkrv: '개역개정',
+    krv: '개역한글',
+    kor: '새번역',
+  };
+
+  const translationOptions: { value: BibleTranslation; label: string }[] = [
+    { value: 'nkrv', label: '개역개정' },
+    { value: 'krv', label: '개역한글' },
+    { value: 'kor', label: '새번역' },
+  ];
 
   // Handle book selection
   const handleSelectBook = (book: BibleBook) => {
@@ -79,8 +97,9 @@ export default function BibleTab() {
   if (view === 'reader' && selectedBook) {
     return (
       <BibleReader
-        book={selectedBook.id}
+        book={selectedBook.name}
         chapter={selectedChapter}
+        translation={translation}
         onBack={() => setView('chapters')}
       />
     );
@@ -90,30 +109,47 @@ export default function BibleTab() {
   return (
     <div className="px-4 pt-12 pb-4">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-[#1d1b20] text-2xl font-bold mb-2">성경</h1>
-        <p className="text-[#49454f] text-sm">개역개정 성경을 읽어보세요</p>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-[#1d1b20] text-2xl font-bold mb-2">성경</h1>
+          <p className="text-[#49454f] text-sm">{translationLabels[translation]} 성경을 읽어보세요</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-[#49454f]" htmlFor="bible-translation">
+            번역본
+          </label>
+          <select
+            id="bible-translation"
+            className="rounded-full border border-[#e7e0ec] bg-white px-3 py-2 text-sm text-[#1d1b20] shadow-sm"
+            value={translation}
+            onChange={(event) => onChangeTranslation(event.target.value as BibleTranslation)}
+          >
+            {translationOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Testament Tabs */}
       <div className="flex gap-2 mb-4">
         <button
           onClick={() => setActiveTestament('old')}
-          className={`flex-1 py-3 rounded-full font-medium text-sm transition-all ${
-            activeTestament === 'old'
-              ? 'bg-[#6750a4] text-white shadow-md'
-              : 'bg-white text-[#49454f] border border-[#e7e0ec]'
-          }`}
+          className={`flex-1 py-3 rounded-full font-medium text-sm transition-all ${activeTestament === 'old'
+            ? 'bg-[#6750a4] text-white shadow-md'
+            : 'bg-white text-[#49454f] border border-[#e7e0ec]'
+            }`}
         >
           구약성경
         </button>
         <button
           onClick={() => setActiveTestament('new')}
-          className={`flex-1 py-3 rounded-full font-medium text-sm transition-all ${
-            activeTestament === 'new'
-              ? 'bg-[#6750a4] text-white shadow-md'
-              : 'bg-white text-[#49454f] border border-[#e7e0ec]'
-          }`}
+          className={`flex-1 py-3 rounded-full font-medium text-sm transition-all ${activeTestament === 'new'
+            ? 'bg-[#6750a4] text-white shadow-md'
+            : 'bg-white text-[#49454f] border border-[#e7e0ec]'
+            }`}
         >
           신약성경
         </button>

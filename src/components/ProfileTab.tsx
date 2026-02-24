@@ -15,6 +15,8 @@ interface ProfileTabProps {
   onChurchUpdated?: (church: string) => void;
   isDarkMode?: boolean;
   onToggleDarkMode?: () => void;
+  bibleTranslation?: api.BibleTranslation;
+  onChangeBibleTranslation?: (translation: api.BibleTranslation) => void;
   onOpenSocialLink?: () => void;
   totalVersesCompleted?: number;
   consecutiveDays?: number;
@@ -30,6 +32,8 @@ export default function ProfileTab({
   onChurchUpdated,
   isDarkMode = false,
   onToggleDarkMode,
+  bibleTranslation = 'nkrv',
+  onChangeBibleTranslation,
   onOpenSocialLink,
   totalVersesCompleted = 0,
   consecutiveDays = 0,
@@ -38,7 +42,16 @@ export default function ProfileTab({
   const profileInitial = (nickname?.trim()?.charAt(0) || 'U').toUpperCase();
   const [showChurchRegistration, setShowChurchRegistration] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [showTranslationMenu, setShowTranslationMenu] = useState(false);
   const [isSavingChurch, setIsSavingChurch] = useState(false);
+
+  const translationOptions: { value: api.BibleTranslation; label: string }[] = [
+    { value: 'nkrv', label: '개역개정' },
+    { value: 'krv', label: '개역한글' },
+    { value: 'kor', label: '새번역' },
+  ];
+
+  const currentTranslationLabel = translationOptions.find((opt) => opt.value === bibleTranslation)?.label || '개역개정';
 
   useEffect(() => {
     // reserved for church-related state sync
@@ -90,6 +103,46 @@ export default function ProfileTab({
   }
 
   if (showSettingsMenu) {
+    if (showTranslationMenu) {
+      return (
+        <div className="min-h-screen bg-[#fef7ff]">
+          <div className="max-w-[360px] mx-auto w-full min-h-screen bg-white flex flex-col">
+            <div className="sticky top-0 z-10 bg-white border-b border-[#e7e0ec]">
+              <div className="flex items-center px-4 h-14">
+                <button
+                  onClick={() => setShowTranslationMenu(false)}
+                  className="p-2 -ml-2 hover:bg-[#f5f5f5] rounded-full transition-colors"
+                >
+                  <ArrowLeft className="w-6 h-6 text-[#1d1b20]" />
+                </button>
+                <h1 className="flex-1 text-[#1d1b20] text-lg font-semibold ml-2">성경 번역본</h1>
+              </div>
+            </div>
+
+            <div className="p-4">
+              <div className="bg-white rounded-[16px] shadow-sm divide-y divide-[#e7e0ec] border border-[#f1edf4]">
+                {translationOptions.map((option) => {
+                  const selected = bibleTranslation === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      onClick={() => onChangeBibleTranslation?.(option.value)}
+                      className="w-full flex items-center justify-between p-4 hover:bg-[#f5f5f5] transition-colors active:bg-[#e8e8e8]"
+                    >
+                      <span className={`font-medium text-base ${selected ? 'text-[#6750a4]' : 'text-[#1d1b20]'}`}>
+                        {option.label}
+                      </span>
+                      {selected && <CheckCircle2 className="w-5 h-5 text-[#6750a4]" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-[#fef7ff]">
         <div className="max-w-[360px] mx-auto w-full min-h-screen bg-white flex flex-col">
@@ -133,6 +186,20 @@ export default function ProfileTab({
                   <span className="text-[#1d1b20] font-medium text-base">소셜 계정 연동</span>
                 </div>
                 <ChevronRight className="w-5 h-5 text-[#79747e]" />
+              </button>
+
+              <button
+                onClick={() => setShowTranslationMenu(true)}
+                className="w-full flex items-center justify-between p-4 hover:bg-[#f5f5f5] transition-colors active:bg-[#e8e8e8]"
+              >
+                <div className="flex items-center gap-3">
+                  <Settings className="w-5 h-5 text-[#49454f]" />
+                  <span className="text-[#1d1b20] font-medium text-base">성경 번역본</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[#79747e] text-sm">{currentTranslationLabel}</span>
+                  <ChevronRight className="w-5 h-5 text-[#79747e]" />
+                </div>
               </button>
             </div>
           </div>

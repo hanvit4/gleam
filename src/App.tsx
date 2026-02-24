@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 const GLOBAL_LINK_ERROR_KEY = 'social_link_error_notice';
 const CHURCH_ONBOARDING_DONE_KEY_PREFIX = 'church_onboarding_done_';
 const THEME_MODE_KEY = 'theme_mode';
+const BIBLE_TRANSLATION_KEY = 'bible_translation';
 
 interface GlobalLinkErrorNotice {
   message: string;
@@ -49,6 +50,13 @@ export default function App() {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
   });
+  const [bibleTranslation, setBibleTranslation] = useState<api.BibleTranslation>(() => {
+    const stored = localStorage.getItem(BIBLE_TRANSLATION_KEY) as api.BibleTranslation | null;
+    if (stored === 'krv' || stored === 'kor' || stored === 'nkrv') {
+      return stored;
+    }
+    return 'nkrv';
+  });
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const stored = localStorage.getItem(THEME_MODE_KEY);
     if (stored === 'dark') return true;
@@ -75,6 +83,10 @@ export default function App() {
     document.documentElement.classList.toggle('dark', isDarkMode);
     localStorage.setItem(THEME_MODE_KEY, isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
+
+  useEffect(() => {
+    localStorage.setItem(BIBLE_TRANSLATION_KEY, bibleTranslation);
+  }, [bibleTranslation]);
 
   // Load user data from API
   const loadUserData = async () => {
@@ -356,6 +368,8 @@ export default function App() {
           onBack={() => setCurrentScreen('home')}
           onSelectEasy={() => setCurrentScreen('easyTopics')}
           onSelectExpert={() => setCurrentScreen('expertTyping')}
+          translation={bibleTranslation}
+          onChangeTranslation={setBibleTranslation}
         />
       );
     }
@@ -378,6 +392,7 @@ export default function App() {
           topicId={selectedTopic}
           onBack={() => setCurrentScreen('easyTopics')}
           onComplete={handleEasyComplete}
+          translation={bibleTranslation}
         />
       );
     }
@@ -389,13 +404,19 @@ export default function App() {
           onComplete={handleExpertComplete}
           todayEarned={todayEarned}
           dailyLimit={DAILY_LIMIT}
+          translation={bibleTranslation}
         />
       );
     }
 
     // Tab-based content
     if (activeTab === 'bible') {
-      return <BibleTab />;
+      return (
+        <BibleTab
+          translation={bibleTranslation}
+          onChangeTranslation={setBibleTranslation}
+        />
+      );
     }
     if (activeTab === 'profile') {
       return (
@@ -408,6 +429,8 @@ export default function App() {
           onChurchUpdated={setChurch}
           isDarkMode={isDarkMode}
           onToggleDarkMode={() => setIsDarkMode((prev) => !prev)}
+          bibleTranslation={bibleTranslation}
+          onChangeBibleTranslation={setBibleTranslation}
           onOpenSocialLink={() => {
             setSocialLinkSource('profile');
             setOnboardingStep('social-link');

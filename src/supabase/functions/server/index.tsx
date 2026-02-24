@@ -3,12 +3,20 @@ import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
 import { createClient } from "npm:@supabase/supabase-js";
 const app = new Hono();
+const ROUTE_PREFIX = '/server';
+const route = (path: string) => `${ROUTE_PREFIX}${path}`;
 
 // Supabase client for auth verification
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '',
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-);
+const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+const supabaseKey = serviceRoleKey || anonKey;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('Missing SUPABASE_URL or SUPABASE_*_KEY for Edge Function');
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Enable logger
 app.use('*', logger(console.log));
@@ -46,12 +54,12 @@ async function verifyAuth(c: any, next: any) {
 }
 
 // Health check endpoint
-app.get("/make-server-3ed9c009/health", (c) => {
+app.get(route("/health"), (c) => {
   return c.json({ status: "ok" });
 });
 
 // Get user profile
-app.get("/make-server-3ed9c009/user/profile", verifyAuth, async (c) => {
+app.get(route("/user/profile"), verifyAuth, async (c) => {
   try {
     const authUserId = c.get('userId');
 
@@ -103,7 +111,7 @@ app.get("/make-server-3ed9c009/user/profile", verifyAuth, async (c) => {
 });
 
 // Update user profile
-app.post("/make-server-3ed9c009/user/profile", verifyAuth, async (c) => {
+app.post(route("/user/profile"), verifyAuth, async (c) => {
   try {
     const authUserId = c.get('userId');
     const body = await c.req.json();
@@ -132,7 +140,7 @@ app.post("/make-server-3ed9c009/user/profile", verifyAuth, async (c) => {
 
 
 // Save transcription record and update credits
-app.post("/make-server-3ed9c009/transcription", verifyAuth, async (c) => {
+app.post(route("/transcription"), verifyAuth, async (c) => {
   try {
     const authUserId = c.get('userId');
     const body = await c.req.json();
@@ -236,7 +244,7 @@ app.post("/make-server-3ed9c009/transcription", verifyAuth, async (c) => {
 });
 
 // Get daily stats for a specific date or date range
-app.get("/make-server-3ed9c009/daily-stats", verifyAuth, async (c) => {
+app.get(route("/daily-stats"), verifyAuth, async (c) => {
   try {
     const authUserId = c.get('userId');
     const date = c.req.query('date'); // YYYY-MM-DD
@@ -305,7 +313,7 @@ app.get("/make-server-3ed9c009/daily-stats", verifyAuth, async (c) => {
 });
 
 // Get completed verses (for Bible tab marking)
-app.get("/make-server-3ed9c009/completed-verses", verifyAuth, async (c) => {
+app.get(route("/completed-verses"), verifyAuth, async (c) => {
   try {
     const authUserId = c.get('userId');
     console.log('Fetching completed verses for user:', authUserId);
@@ -363,7 +371,7 @@ app.get("/make-server-3ed9c009/completed-verses", verifyAuth, async (c) => {
 // ===================================
 
 // GET /make-server-3ed9c009/user/providers - 사용자의 소셜 계정 정보 조회
-app.get("/make-server-3ed9c009/user/providers", verifyAuth, async (c) => {
+app.get(route("/user/providers"), verifyAuth, async (c) => {
   try {
     const authUserId = c.get('userId');
 
@@ -396,7 +404,7 @@ app.get("/make-server-3ed9c009/user/providers", verifyAuth, async (c) => {
 
 // POST /make-server-3ed9c009/user/providers/link - 소셜 계정 연동
 // Body: { provider, provider_name, provider_email }
-app.post("/make-server-3ed9c009/user/providers/link", verifyAuth, async (c) => {
+app.post(route("/user/providers/link"), verifyAuth, async (c) => {
   try {
     const authUserId = c.get('userId');
     const body = await c.req.json();
@@ -428,7 +436,7 @@ app.post("/make-server-3ed9c009/user/providers/link", verifyAuth, async (c) => {
 });
 
 // DELETE /make-server-3ed9c009/user/providers/:provider - 소셜 계정 연동 해제
-app.delete("/make-server-3ed9c009/user/providers/:provider", verifyAuth, async (c) => {
+app.delete(route("/user/providers/:provider"), verifyAuth, async (c) => {
   try {
     const authUserId = c.get('userId');
     const providerName = c.req.param('provider');
@@ -453,7 +461,7 @@ app.delete("/make-server-3ed9c009/user/providers/:provider", verifyAuth, async (
 });
 
 // POST /make-server-3ed9c009/user/providers/disconnect-all - 모든 소셜 계정 연동 해제
-app.post("/make-server-3ed9c009/user/providers/disconnect-all", verifyAuth, async (c) => {
+app.post(route("/user/providers/disconnect-all"), verifyAuth, async (c) => {
   try {
     const authUserId = c.get('userId');
 
@@ -478,7 +486,7 @@ app.post("/make-server-3ed9c009/user/providers/disconnect-all", verifyAuth, asyn
 // ===================================
 
 // GET /make-server-3ed9c009/churches?search=&city=
-app.get("/make-server-3ed9c009/churches", verifyAuth, async (c) => {
+app.get(route("/churches"), verifyAuth, async (c) => {
   try {
     const search = (c.req.query('search') || '').trim();
     const city = (c.req.query('city') || '').trim();
@@ -520,7 +528,7 @@ app.get("/make-server-3ed9c009/churches", verifyAuth, async (c) => {
 });
 
 // GET /make-server-3ed9c009/user/church-memberships
-app.get("/make-server-3ed9c009/user/church-memberships", verifyAuth, async (c) => {
+app.get(route("/user/church-memberships"), verifyAuth, async (c) => {
   try {
     const authUserId = c.get('userId');
 
@@ -586,7 +594,7 @@ app.get("/make-server-3ed9c009/user/church-memberships", verifyAuth, async (c) =
 
 // POST /make-server-3ed9c009/user/church-memberships
 // body: { churchId?: string, churchCode?: string, manualChurch?: { name, address, city, district, phone, pastor, denomination } }
-app.post("/make-server-3ed9c009/user/church-memberships", verifyAuth, async (c) => {
+app.post(route("/user/church-memberships"), verifyAuth, async (c) => {
   try {
     const authUserId = c.get('userId');
     const body = await c.req.json();
@@ -717,7 +725,7 @@ app.post("/make-server-3ed9c009/user/church-memberships", verifyAuth, async (c) 
 });
 
 // DELETE /make-server-3ed9c009/user/church-memberships/:membershipId
-app.delete("/make-server-3ed9c009/user/church-memberships/:membershipId", verifyAuth, async (c) => {
+app.delete(route("/user/church-memberships/:membershipId"), verifyAuth, async (c) => {
   try {
     const authUserId = c.get('userId');
     const membershipId = c.req.param('membershipId');
@@ -784,7 +792,7 @@ app.delete("/make-server-3ed9c009/user/church-memberships/:membershipId", verify
 });
 
 // POST /make-server-3ed9c009/user/providers/disconnect-all - 모든 소셜 계정 연동 해제 (계정 삭제 시)
-app.post("/make-server-3ed9c009/user/providers/disconnect-all", verifyAuth, async (c) => {
+app.post(route("/user/providers/disconnect-all"), verifyAuth, async (c) => {
   try {
     const userId = c.get('userId');
 
@@ -801,55 +809,149 @@ app.post("/make-server-3ed9c009/user/providers/disconnect-all", verifyAuth, asyn
   }
 });
 
-// --- Bible API (dummy data for now) ---
-const DUMMY_BIBLE = {
-  '창세기': {
-    1: {
-      1: '태초에 하나님이 천지를 창조하시니라',
-      2: '땅이 혼돈하고 공허하며 흑암이 깊음 위에 있고 하나님의 영은 수면 위에 운행하시니라',
-      3: '하나님이 이르시되 빛이 있으라 하시니 빛이 있었고',
-    },
-    2: {
-      1: '천지와 만물이 다 이루어지니라',
-    },
-  },
+// --- Bible API ---
+
+// 성경 책 이름 → book_no 매핑
+const BOOK_NAME_TO_NO: { [key: string]: number } = {
+  '창세기': 1, '출애굽기': 2, '레위기': 3, '민수기': 4, '신명기': 5,
+  '여호수아': 6, '사사기': 7, '룻기': 8, '사무엘상': 9, '사무엘하': 10,
+  '열왕기상': 11, '열왕기하': 12, '역대상': 13, '역대하': 14, '에스라': 15,
+  '느헤미야': 16, '에스더': 17, '욥기': 18, '시편': 19, '잠언': 20,
+  '전도서': 21, '아가': 22, '이사야': 23, '예레미야': 24, '예레미야애가': 25,
+  '에스겔': 26, '다니엘': 27, '호세아': 28, '요엘': 29, '아모스': 30,
+  '오바댜': 31, '요나': 32, '미가': 33, '나훔': 34, '하박국': 35,
+  '스바냐': 36, '학개': 37, '스가랴': 38, '말라기': 39,
+  '마태복음': 40, '마가복음': 41, '누가복음': 42, '요한복음': 43, '사도행전': 44,
+  '로마서': 45, '고린도전서': 46, '고린도후서': 47, '갈라디아서': 48, '에베소서': 49,
+  '빌립보서': 50, '골로새서': 51, '데살로니가전서': 52, '데살로니가후서': 53,
+  '디모데전서': 54, '디모데후서': 55, '디도서': 56, '빌레몬서': 57, '히브리서': 58,
+  '야고보서': 59, '베드로전서': 60, '베드로후서': 61, '요한일서': 62,
+  '요한이서': 63, '요한삼서': 64, '유다서': 65, '요한계시록': 66,
 };
 
-// GET /make-server-3ed9c009/bible/book/:book/chapter/:chapter
-app.get('/make-server-3ed9c009/bible/book/:book/chapter/:chapter', async (c) => {
-  const { book, chapter } = c.req.param();
-  const chapterNum = Number(chapter);
-  const data = DUMMY_BIBLE[book]?.[chapterNum];
-  if (!data) return c.json({ error: 'Not found' }, 404);
-  return c.json({ book, chapter: chapterNum, verses: data });
-});
+// GET /make-server-3ed9c009/bible/book/:book/chapter/:chapter?translation=krv
+app.get(route('/bible/book/:book/chapter/:chapter'), async (c) => {
+  try {
+    const { book, chapter } = c.req.param();
+    const translation = c.req.query('translation') || 'krv';
+    const chapterNum = Number(chapter);
+    const bookNo = BOOK_NAME_TO_NO[book];
 
-// GET /make-server-3ed9c009/bible/book/:book/chapter/:chapter/verse/:verse
-app.get('/make-server-3ed9c009/bible/book/:book/chapter/:chapter/verse/:verse', async (c) => {
-  const { book, chapter, verse } = c.req.param();
-  const chapterNum = Number(chapter);
-  const verseNum = Number(verse);
-  const text = DUMMY_BIBLE[book]?.[chapterNum]?.[verseNum];
-  if (!text) return c.json({ error: 'Not found' }, 404);
-  return c.json({ book, chapter: chapterNum, verse: verseNum, text });
-});
-
-// GET /make-server-3ed9c009/bible/search?q=...
-app.get('/make-server-3ed9c009/bible/search', async (c) => {
-  const q = (c.req.query('q') || '').trim();
-  if (!q) return c.json({ results: [] });
-  // Dummy search: scan all dummy verses
-  const results = [];
-  for (const [book, chapters] of Object.entries(DUMMY_BIBLE)) {
-    for (const [chapter, verses] of Object.entries(chapters)) {
-      for (const [verse, text] of Object.entries(verses)) {
-        if (typeof text === 'string' && text.includes(q)) {
-          results.push({ book, chapter: Number(chapter), verse: Number(verse), text });
-        }
-      }
+    if (!bookNo) {
+      return c.json({ error: `Unknown book: ${book}` }, 404);
     }
+
+    // DB에서 해당 장의 모든 절 조회
+    const { data: verses, error } = await supabase
+      .from('bible_verses')
+      .select('verse_no, verse_text')
+      .eq('translation_code', translation)
+      .eq('book_no', bookNo)
+      .eq('chapter_no', chapterNum)
+      .order('verse_no', { ascending: true });
+
+    if (error) {
+      console.error('DB query error:', error);
+      return c.json({ error: 'Database error' }, 500);
+    }
+
+    if (!verses || verses.length === 0) {
+      return c.json({ error: 'Chapter not found' }, 404);
+    }
+
+    // verse_no → verse_text 객체 변환
+    const versesObj: { [key: number]: string } = {};
+    verses.forEach(v => {
+      versesObj[v.verse_no] = v.verse_text;
+    });
+
+    return c.json({ book, chapter: chapterNum, verses: versesObj });
+  } catch (error) {
+    console.error('Error in getBibleChapter:', error);
+    return c.json({ error: 'Internal server error' }, 500);
   }
-  return c.json({ results });
+});
+
+// GET /make-server-3ed9c009/bible/book/:book/chapter/:chapter/verse/:verse?translation=krv
+app.get(route('/bible/book/:book/chapter/:chapter/verse/:verse'), async (c) => {
+  try {
+    const { book, chapter, verse } = c.req.param();
+    const translation = c.req.query('translation') || 'krv';
+    const chapterNum = Number(chapter);
+    const verseNum = Number(verse);
+    const bookNo = BOOK_NAME_TO_NO[book];
+
+    if (!bookNo) {
+      return c.json({ error: `Unknown book: ${book}` }, 404);
+    }
+
+    // DB에서 특정 절 조회
+    const { data: verseData, error } = await supabase
+      .from('bible_verses')
+      .select('verse_text')
+      .eq('translation_code', translation)
+      .eq('book_no', bookNo)
+      .eq('chapter_no', chapterNum)
+      .eq('verse_no', verseNum)
+      .maybeSingle();
+
+    if (error) {
+      console.error('DB query error:', error);
+      return c.json({ error: 'Database error' }, 500);
+    }
+
+    if (!verseData) {
+      return c.json({ error: 'Verse not found' }, 404);
+    }
+
+    return c.json({ book, chapter: chapterNum, verse: verseNum, text: verseData.verse_text });
+  } catch (error) {
+    console.error('Error in getBibleVerse:', error);
+    return c.json({ error: 'Internal server error' }, 500);
+  }
+});
+
+// GET /make-server-3ed9c009/bible/search?q=...&translation=krv
+app.get(route('/bible/search'), async (c) => {
+  try {
+    const q = (c.req.query('q') || '').trim();
+    const translation = c.req.query('translation') || 'krv';
+
+    if (!q) {
+      return c.json({ results: [] });
+    }
+
+    // DB에서 전문 검색 (ILIKE 사용, 최대 100개)
+    const { data: verses, error } = await supabase
+      .from('bible_verses')
+      .select('book_no, chapter_no, verse_no, verse_text')
+      .eq('translation_code', translation)
+      .ilike('verse_text', `%${q}%`)
+      .limit(100);
+
+    if (error) {
+      console.error('DB search error:', error);
+      return c.json({ error: 'Database error' }, 500);
+    }
+
+    // book_no → 책 이름 역매핑
+    const BOOK_NO_TO_NAME: { [key: number]: string } = {};
+    Object.entries(BOOK_NAME_TO_NO).forEach(([name, no]) => {
+      BOOK_NO_TO_NAME[no] = name;
+    });
+
+    const results = (verses || []).map(v => ({
+      book: BOOK_NO_TO_NAME[v.book_no] || `Book ${v.book_no}`,
+      chapter: v.chapter_no,
+      verse: v.verse_no,
+      text: v.verse_text,
+    }));
+
+    return c.json({ results });
+  } catch (error) {
+    console.error('Error in searchBible:', error);
+    return c.json({ error: 'Internal server error' }, 500);
+  }
 });
 
 Deno.serve(app.fetch);

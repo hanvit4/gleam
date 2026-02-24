@@ -6,26 +6,27 @@ import * as api from '../utils/api';
 interface BibleReaderProps {
   book: string;
   chapter: number;
+  translation: api.BibleTranslation;
   onBack: () => void;
 }
 
-export default function BibleReader({ book, chapter, onBack }: BibleReaderProps) {
+export default function BibleReader({ book, chapter, translation, onBack }: BibleReaderProps) {
   const [verses, setVerses] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [completedVerses, setCompletedVerses] = useState<Set<number>>(new Set());
+  const [isLoadingCompleted, setIsLoadingCompleted] = useState(true);
 
-  // TODO: 실제 완료 절 정보는 props 또는 context로 받아야 함
-  const completedVerses = new Set([1, 2, 3]);
-
-  const bookNames: { [key: string]: string } = {
-    'genesis': '창세기',
-    'matthew': '마태복음',
+  const translationLabels: Record<api.BibleTranslation, string> = {
+    nkrv: '개역개정',
+    krv: '개역한글',
+    kor: '새번역',
   };
 
   useEffect(() => {
     setLoading(true);
     setError(null);
-    api.getBibleChapter(bookNames[book] || book, chapter)
+    api.getBibleChapter(book, chapter, translation)
       .then((res) => {
         if (res && res.verses) {
           // verses: { 1: '...', 2: '...' }
@@ -43,6 +44,47 @@ export default function BibleReader({ book, chapter, onBack }: BibleReaderProps)
         setError('구절 데이터를 불러오지 못했습니다.');
       })
       .finally(() => setLoading(false));
+  }, [book, chapter, translation]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadCompletedVerses = async () => {
+      try {
+        const result = await api.getCompletedVerses();
+        const completedMap = result?.completedVerses || {};
+        const prefix = `${book}-${chapter}-`;
+        const completedSet = new Set<number>();
+
+        Object.keys(completedMap).forEach((key) => {
+          if (key.startsWith(prefix)) {
+            const verseStr = key.slice(prefix.length);
+            const verseNum = Number(verseStr);
+            if (!Number.isNaN(verseNum)) {
+              completedSet.add(verseNum);
+            }
+          }
+        });
+
+        if (isActive) {
+          setCompletedVerses(completedSet);
+        }
+      } catch {
+        if (isActive) {
+          setCompletedVerses(new Set());
+        }
+      } finally {
+        if (isActive) {
+          setIsLoadingCompleted(false);
+        }
+      }
+    };
+
+    loadCompletedVerses();
+
+    return () => {
+      isActive = false;
+    };
   }, [book, chapter]);
 
   return (
@@ -58,10 +100,10 @@ export default function BibleReader({ book, chapter, onBack }: BibleReaderProps)
           </button>
           <div className="flex-1">
             <h1 className="text-[#1d1b20] text-lg font-semibold">
-              {bookNames[book] || book} {chapter}장
+              {book} {chapter}장
             </h1>
             <p className="text-[#49454f] text-xs">
-              {completedVerses.size}절 필사 완료
+              {translationLabels[translation]} · {completedVerses.size}절 필사 완료
             </p>
           </div>
         </div>
@@ -69,8 +111,11 @@ export default function BibleReader({ book, chapter, onBack }: BibleReaderProps)
 
       {/* Verses */}
       <div className="px-4 pt-4 space-y-3">
-        {loading ? (
-          <div className="text-center text-[#79747e]">구절 데이터를 불러오는 중...</div>
+        {loading || isLoadingCompleted ? (
+          <div className="flex flex-col items-center justify-center min-h-[200px]">
+            <div className="w-8 h-8 border-4 border-[#6750a4] border-t-transparent rounded-full animate-spin mb-3" />
+            <p className="text-[#49454f] text-sm">구절 데이터를 불러오는 중...</p>
+          </div>
         ) : error ? (
           <div className="text-center text-[#ba1a1a]">{error}</div>
         ) : (
@@ -81,8 +126,8 @@ export default function BibleReader({ book, chapter, onBack }: BibleReaderProps)
               <div
                 key={verseNum}
                 className={`rounded-[12px] p-4 transition-all ${isCompleted
-                    ? 'bg-[#e8def8] border-l-4 border-[#6750a4]'
-                    : 'bg-white border border-[#e7e0ec]'
+                  ? 'bg-[#e8def8] border-l-4 border-[#6750a4]'
+                  : 'bg-white border border-[#e7e0ec]'
                   }`}
               >
                 <div className="flex gap-3">
@@ -90,8 +135,8 @@ export default function BibleReader({ book, chapter, onBack }: BibleReaderProps)
                   <div className="flex-shrink-0">
                     <div
                       className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${isCompleted
-                          ? 'bg-[#6750a4] text-white'
-                          : 'bg-[#e7e0ec] text-[#49454f]'
+                        ? 'bg-[#6750a4] text-white'
+                        : 'bg-[#e7e0ec] text-[#49454f]'
                         }`}
                     >
                       {verseNum}
